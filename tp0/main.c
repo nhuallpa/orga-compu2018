@@ -7,8 +7,6 @@
 #define ERROR_CODIFICANDO  2
 #define ERROR_DECODIFICANDO  3
 
-static const char basis_64[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
 static char* ENCODE = "encode";
 static char* DECODE = "decode";

@@ -6,7 +6,7 @@
 
 void escribir (int c, FILE *salida)
 {
-	if (!fputc (c, salida) == EOF) {
+	if (fputc (c, salida) == EOF) {
 		fprintf (stderr, "%s\n", strerror (errno));
 		exit (1);
 	}
@@ -59,17 +59,18 @@ void codificar (FILE *entrada, FILE *salida)
 	}
 }
 
-int crear_tabla_de_decodificacion ()
+void crear_tabla_de_decodificacion ()
 {
 	const char *tabla_codificacion = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 	const int largo = 256;
-	unsigned char tabla[largo];
+	char tabla[largo];
 	for (int i = 0; i < largo; i++) {
 		tabla[i] = -1;
 	}
-	char c;
+	unsigned char c;
 	int i = 0;
-	while ((c = tabla_codificacion[i]) != 0) {
+	while ((c = tabla_codificacion[i]) != '\0') {
 		tabla[c] = i++;
 	}
 	for (int i = 0; i < largo; i++) {
@@ -100,12 +101,12 @@ void resolver (char *b, int largo)
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 	};
 	for (int i = 0; i < largo; i++) {
-		char c = b[i];
-		b[i] = tabla[b[i]];
+		unsigned char c = b[i];
 		if (b[i] == -1) {
 			fprintf (stderr, "Error: Caracter '%c' ilegal en la entrada\n", c);
 			exit (1);
 		}
+		b[i] = tabla[c];
 	}
 }
 
@@ -129,8 +130,6 @@ void decodificar_finales (char * b, int finales, FILE *salida)
 
 void decodificar (FILE *entrada, FILE *salida)
 {
-	const int previo = 0;
-	const int actual = 1;
 	char b[5];
 	int leidos;
 	if ((leidos = fread (b, 1, 5, entrada)) == 5) {
