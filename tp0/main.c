@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <getopt.h>
+#include "codec.h"
 
 #define ERROR_CODIFICANDO  2
 #define ERROR_DECODIFICANDO  3
@@ -74,7 +75,7 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
 	            break;
 
             case 'v' :
-                printf("Tp0:Version_0.1:Grupo: Nestor Huallpa, Ariel Martinez, Pablo Sivori \n");
+                printf("Tp0:Version_0.1:Grupo: Bárbara Mesones Miret, Nestor Huallpa, Sebastián D'Alessandro Szymanowski\n");
                 exit(0);
             	break;
             	
@@ -105,18 +106,18 @@ int main(int argc, char** argv) {
 
 	Parametro p = manejarArgumentosEntrada(argc, argv);
 	
-    int isEntradaArchivo = strcmp(p.entrada,"");
+	int isEntradaArchivo = strcmp(p.entrada,"");
 	int isSalidaArchivo = strcmp(p.salida,"");
-
+	
 	//Si la entrada esta vacia lee stdin (teclado)
 	FILE* archivoEntrada = (isEntradaArchivo!=0)?fopen(p.entrada, "rb"):stdin; 
 	//Si la salida esta vacia escribe stdout (pantalla)
 	FILE* archivoSalida = (isSalidaArchivo!=0)?fopen ( p.salida, "w" ):stdout; 
 
-	if ( strcmp(p.accion, ENCODE) == 0 ) {
-		fprintf(stdout, "CODIFICAR");
-	} else if ( strcmp(p.accion, DECODE) == 0 ) {
-		fprintf(stdout, "DECODIFICAR");
+	if (strcmp(p.accion, ENCODE) == 0) {
+		codificar (archivoEntrada, archivoSalida);
+	} else if (strcmp(p.accion, DECODE) == 0) {
+		decodificar (archivoEntrada, archivoSalida);
 	} else {
 		fprintf(stderr, "ERROR: SE DEBE INGRESAR UN ARGUMENTO CORRECTO PARA LA OPCION i.\n");
 	}
