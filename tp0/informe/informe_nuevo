@@ -1,10 +1,8 @@
-la ediciciòn se encuentra en overleaf...
-
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 
 \title{Informe TP0 organizacion de compus}
-\author{Bárbara Mesones Miret, Sebastian D'Allesandro, Nestor Huallpa }
+\author{Bárbara Mesones Miret,  Sebastián D'Alessandro Szymanowski, Nestor Huallpa }
 \date{Septiembre 2018}
 
 \begin{document}
@@ -85,8 +83,86 @@ Encoding. http://tools.ietf.org/html/rfc2045#section-6.8.
 El programa cuenta con una sección de menú manipulable por el usuario (entre otras cosas) y con otra sección que contiene el código de codificación y decodificación.
 
 \subsection{Menú (main.c)}
-En el apartado main.c se puede ver la implementación de un menú. Se observa una tabla correspondiente a la base 64 la cual iremos usando a medida que trabajemos con los codificadores y decodificadores.
-El menú posee una opción que ejecuta el programa en modo información "-h" que detalla las variantes de ejecución del programa, estas son -V que imprime la versión del programa y sale del mismo y otra es [options] que muestra las opciones disponibles; estas son -V, -h, -i que está disponible para indicar en donde se encuentra la direccion del archivo de entrada, -o lo mismo pero para el archivo de salida, -a que indica la acción que queremos que ejecute el programa, por default será encode y si quisiéramos que decodifique solo hace falta agregarle un decode.
+En el apartado main.c se puede ver la implementación de un menú, también se observa una tabla correspondiente a la base 64 la cual iremos usando a medida que trabajemos con los codificadores y decodificadores.
 
+El menú posee una opción que ejecuta el programa en modo información "-h" que detalla las variantes de ejecución del programa, estas son -V que imprime la versión del programa y sale del mismo y otra es [options] que muestra las opciones disponibles; estas son -V, -h, -i que está disponible para indicar en donde se encuentra la dirección del archivo de entrada, -o lo mismo pero para el archivo de salida, -a que indica la acción que queremos que ejecute el programa, por default será encode y si quisiéramos que decodifique solo hace falta agregarle un decode.
+
+Si se especifica la opción de codificar o decodificar entonces se podrá también especificar el archivo de entrada y de salida, se le podrá pasar un archivo especifico llamando a la función o también podrá pasárselo desde consola (Stdin y Stdout).
+
+\subsection{Codificación}
+La codificación se hace posible con la agrupación de casos que conforman la solución, para esto se dividen los bytes en bits y se agrupan dependiendo la llegada de los mismos; a cada caso le corresponde un respectiva máscara, un respectivo delta de desplazamiento, y los bits faltantes para completar con el signo "=" . Los casos están ordenados, entonces con un bucle se irá codificando a medida, salvo que haya algún carácter invalido, la codificación será exitosa. Esta codificación, agarra el caso y sus parámetros, busca en la tabla de base 64 y traduce los bits en el carácter correspondiente.
+
+\subsection{Decodificación}
+Para la decodificación se crea una tabla de decodificación correspondiente, con esta se podrán traducir los caracteres a decodificar. Se tendrá en cuenta los caracteres inválidos, como por ejemplo un "=" entre medio de caracteres de la tabla "base 64".
+La decodificación se hará de a bloques de 4 caracteres.
+
+\section{Código pruebas }
+#! /bin/sh
+
+touch /tmp/zero.txt #creamos un archivo de texto vacio
+./tp0 -a encode -i /tmp/zero.txt -o /tmp/zero.txt.b64
+ls -l /tmp/zero.txt.b64
+#-rw-r--r-- 1 user group 0 2018-09-08 16:21 /tmp/zero.txt.b64
+
+echo -n M | ./tp0 #codificamos caracter ASCII M
+#TQ==
+echo
+
+echo -n Ma | ./tp0 #codificamos caracter ASCII M y a
+#TWE=
+echo
+
+
+
+echo -n "Man" | ./tp0 #codificamos Man
+#TWFu
+echo
+echo Man | ./tp0 | ./tp0 -a decode #codificamos y decodificamos
+#Man
+echo
+echo xyz | ./tp0 | ./tp0 -a decode | od -t c #verificamos bit a bit
+#0000000 x y z \n
+#0000004
+echo
+yes | head -c 1024 | ./tp0 -a encode #codificamos 1024 bytes, comprobamos longitud
+#eQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkK
+#...
+#eQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5CnkKeQp5Cg==
+echo
+
+yes | head -c 1024 | ./tp0 -a encode | ./tp0 -a decode | wc -c #verificamos que los bytes sean 1024
+#1024
+echo
+
+#Generamos archivos de tamaño creciente
+#cat /dev/zero | ./tp0 -a encode
+
+n=1;
+while :; do
+
+head -c $n </dev/urandom >/tmp/in.bin;
+
+./tp0 -a encode -i /tmp/in.bin -o /tmp/out.b64;
+
+./tp0 -a decode -i /tmp/out.b64 -o /tmp/out.bin;
+
+if diff /tmp/in.bin /tmp/out.bin; then :; else
+
+echo ERROR: $n;
+
+break;
+
+fi
+
+echo ok: $n;
+
+n=$(($n+1));
+
+rm -f /tmp/in.bin /tmp/out.b64 /tmp/out.bin
+done
+
+\section{Código en C}
 
 \end{document}
+
+
