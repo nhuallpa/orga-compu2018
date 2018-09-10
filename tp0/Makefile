@@ -7,9 +7,10 @@ CFLAGS  = -Wall -O0
 
 # Rules
 default: clean bin
+tp0: main.c codec.c
 
 bin: 
-	$(CC) $(CFLAGS) -o tp0 main.c -D_VERSION_=\"$(VERSION)\"
+	$(CC) $(CFLAGS) -o tp0  main.c codec.c -D_VERSION_=\"$(VERSION)\"
 
 clean:
 	$(RM) tp0
