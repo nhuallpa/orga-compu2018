@@ -148,21 +148,410 @@ head -c $n </dev/urandom >/tmp/in.bin;
 
 if diff /tmp/in.bin /tmp/out.bin; then :; else
 
-echo ERROR: $n;
+echo ERROR: \$n;
 
 break;
 
 fi
 
-echo ok: $n;
+echo ok: \$n;
 
-n=$(($n+1));
+n=\$((\$n+1));
 
 rm -f /tmp/in.bin /tmp/out.b64 /tmp/out.bin
 done
 
 \section{Código en C}
+\subsection{Main.c}
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include "codec.h"
+
+#define ERROR_CODIFICANDO  2
+#define ERROR_DECODIFICANDO  3
+
+
+static char* ENCODE = "encode";
+static char* DECODE = "decode";
+
+typedef struct {
+       char* accion;
+       char* entrada;
+       char* salida;
+} Parametro;
+
+
+Parametro manejarArgumentosEntrada(int argc, char** argv)
+{
+	int siguiente_opcion;
+	int option_index;
+
+    /* Una cadena que lista las opciones cortas validas */
+    const char* const op_cortas = "hva:i:o:"; /* "hva::i:o:" */
+
+    /* Una estructura de varios arrays describiendo los valores largos */
+    const struct option op_largas[] =
+	{
+      	{ "help",    	no_argument,  		0,  'h'},
+      	{ "version",    no_argument,  		0,  'V'},
+		{ "action",    	required_argument,  0,  'a'}, /*optional_argument*/
+		{ "input",     	required_argument,  0,  'i'},
+		{ "output",    	required_argument,  0,  'o'},
+      	{ 0, 0, 0, 0 }
+    };
+
+
+	Parametro parametro;
+	parametro.accion 	= ENCODE;
+	parametro.entrada 	= "";
+	parametro.salida 	= ""; 
+
+    while (1)
+    {
+        siguiente_opcion = getopt_long (argc, argv, op_cortas, op_largas, &option_index);
+        
+        if (siguiente_opcion == -1) 
+        	break;
+        
+        switch (siguiente_opcion)
+        {
+            case 'h' :
+            
+                printf("Usage:\n");
+                printf("\ttp0 -h\n");
+                printf("\ttp0 -V\n");
+                printf("\ttp0 [ options ]\n");
+                
+                printf("Options:\n");
+                printf("\t-V, --version       Print version and quit.\n");
+                printf("\t-h, --help          Print this information.\n");
+                printf("\t-i, --input         Location of the input file.\n");
+                printf("\t-o, --output        Location of the output file.\n");
+                printf("\t-a, --action        Program action: encode (default) or decode.\n");
+                
+                printf("Examples:\n");
+                printf("\ttp0 -a encode -i ~/input -o ~/output\n");
+                printf("\ttp0 -a encode\n");
+                exit(0);
+	            break;
+
+            case 'v' :
+                printf("Tp0:Version_0.1:Grupo: Bárbara Mesones Miret, Nestor Huallpa, Sebastián D'Alessandro Szymanowski\n");
+                exit(0);
+            	break;
+            	
+            case 'a' :
+                if ( optarg )
+               		parametro.accion = optarg;
+            	break;
+            	
+            case 'i' :
+                if ( optarg )
+					parametro.entrada = optarg;
+            	break;
+            	
+            case 'o' :
+                if ( optarg )
+					parametro.salida = optarg;
+            	break;
+        }
+    }
+    
+    return parametro;
+
+}
+
+int main(int argc, char** argv) {
+
+	int returnCode = 0;
+
+	Parametro p = manejarArgumentosEntrada(argc, argv);
+	
+	int isEntradaArchivo = strcmp(p.entrada,"");
+	int isSalidaArchivo = strcmp(p.salida,"");
+	
+	//Si la entrada esta vacia lee stdin (teclado)
+	FILE* archivoEntrada = (isEntradaArchivo!=0)?fopen(p.entrada, "rb"):stdin; 
+	//Si la salida esta vacia escribe stdout (pantalla)
+	FILE* archivoSalida = (isSalidaArchivo!=0)?fopen ( p.salida, "w" ):stdout; 
+
+	if (strcmp(p.accion, ENCODE) == 0) {
+		codificar (archivoEntrada, archivoSalida);
+	} else if (strcmp(p.accion, DECODE) == 0) {
+		decodificar (archivoEntrada, archivoSalida);
+	} else {
+		fprintf(stderr, "ERROR: SE DEBE INGRESAR UN ARGUMENTO CORRECTO PARA LA OPCION i.\n");
+	}
+
+	if (isEntradaArchivo!=0) {
+		fclose(archivoEntrada);
+	}
+	if (isSalidaArchivo!=0) {
+		fclose(archivoSalida);
+	}
+	if(returnCode!=0){ 
+	 	exit(1);
+	}
+	return returnCode;
+}
+\subsection{codec.c}
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include "codec.h"
+
+void escribir (int c, FILE *salida)
+{
+	if (fputc (c, salida) == EOF) {
+		fprintf (stderr, "%s\n", strerror (errno));
+		exit (1);
+	}
+}
+
+/*
+ * Ejemplo de entrada dividida en bloques de 6 bits: xxxxxxOO OOOOxxxx xxOOOOOO xxxxxxOO OOOOxxxx
+ *
+ *	|     mascaras			| deltas | Faltan (=)
+ * caso	| previo   actual		| <<  >> |
+ * 0	| 00000000 xxxxxx00	00 fc	|  0  2	 | 2
+ * 1	| 000000xx xxxx0000	03 f0	|  4  4  | 1
+ * 2	| 0000xxxx xx000000	0f c0	|  2  6  | 0
+ *                    |
+ * 3	| 00000000 00xxxxxx	00 3f	|  0  0  | 0
+ * luego repite
+ */	
+
+void codificar (FILE *entrada, FILE *salida)
+{
+	const char *tabla = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	const int previo = 0;
+	const int actual = 1;
+	const int mascara[2][4] = {{0x00, 0x03, 0x0f, 0x00}, {0xfc, 0xf0, 0xc0, 0x3f}};
+	const int delta[2][4] = {{0, 4, 2, 0}, {2, 4, 6, 0}};
+	const int faltantes[3] = {0, 2, 1};
+	int b[2] = {0};
+	int caso = 0;
+	while ((b[actual] = fgetc (entrada)) != EOF) {
+		int i = ((b[previo] & mascara[previo][caso]) << delta[previo][caso]) |
+			((b[actual] & mascara[actual][caso]) >> delta[actual][caso]);
+		escribir (tabla[i], salida);
+		caso++;
+		if (caso == 3) {
+			i = (b[actual] & mascara[actual][caso]);
+			escribir (tabla[i], salida);
+			caso = 0;
+		}
+		b[previo] = b[actual];
+	}
+	if (faltantes[caso] == 1) {
+		int i = (b[previo] & 0x0f) << 2;
+		escribir (tabla[i], salida);
+	} else if (faltantes[caso] == 2) {
+		int i = (b[previo] & 0x03) << 4;
+		escribir (tabla[i], salida);
+	}
+	for (int i = 0; i < faltantes[caso]; i++) {
+		escribir ('=', salida);
+	}
+}
+
+void crear_tabla_de_decodificacion ()
+{
+	const char *tabla_codificacion = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+	const int largo = 256;
+	char tabla[largo];
+	for (int i = 0; i < largo; i++) {
+		tabla[i] = -1;
+	}
+	unsigned char c;
+	int i = 0;
+	while ((c = tabla_codificacion[i]) != '\0') {
+		tabla[c] = i++;
+	}
+	for (int i = 0; i < largo; i++) {
+		if ( i % 16 == 0 ) fprintf (stderr, "\n");
+		fprintf (stderr, "0x%02x, ", tabla[i]);
+	}
+	fprintf (stderr, "\n");
+}
+
+void resolver (char *b, int largo)
+{
+	const char tabla[] = {
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x3e, 0xff, 0xff, 0xff, 0x3f, 
+		0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 
+		0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 
+		0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+	};
+	for (int i = 0; i < largo; i++) {
+		unsigned char c = b[i];
+		if (b[i] == -1) {
+			fprintf (stderr, "Error: Caracter '%c' ilegal en la entrada\n", c);
+			exit (1);
+		}
+		b[i] = tabla[c];
+	}
+}
+
+void decodificar_finales (char * b, int finales, FILE *salida)
+{
+	if (finales == 1) {
+		resolver (b, 2);
+		escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+	} else if (finales == 2) {
+		resolver (b, 3);
+		escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+		escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
+
+	} else if (finales == 3) {
+		resolver (b, 4);
+		escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+		escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
+		escribir (((b[2] & 0x03) << 6) | (b[3] & 0x3f), salida);
+	}
+}
+
+void decodificar (FILE *entrada, FILE *salida)
+{
+	char b[5];
+	int leidos;
+	if ((leidos = fread (b, 1, 5, entrada)) == 5) {
+		do {
+			resolver (b, 4);
+			escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+			escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
+			escribir (((b[2] & 0x03) << 6) | (b[3] & 0x3f), salida);
+			b[0] = b[4];
+		} while ((leidos = fread (b+1, 1, 4, entrada)) == 4);
+		leidos += 1;
+	}
+	if (leidos) {
+		int finales ;
+		if (leidos == 4) {
+			finales = b[3] == '=' ? (b[2] == '=' ? 1 : 2) : 3;
+		} else if (leidos == 3) {
+			fprintf (stderr, "Error: Faltan 1 caracter de relleno\n");
+			finales = b[2] == '=' ? 1 : 2;
+		} else if (leidos == 2) {
+			fprintf (stderr, "Error: Faltan 2 caracteres de relleno\n");
+			finales = 1;
+		} else {
+			fprintf (stderr, "Error: Faltan 2 caracteres de relleno\n");
+			fprintf (stderr, "Error: Faltan 1 caracter de informacion\n");
+			return ;
+		}
+		decodificar_finales (b, finales, salida);
+	}
+}
+
+
+\section{Codigo MIPS32}
+
+.file	1 "codec.c"
+	.section .mdebug.abi32
+	.previous
+	.abicalls
+	.rdata
+	.align	2
+$LC0:
+	.ascii	"%s\n\000"
+	.text
+	.align	2
+	.globl	escribir
+	.ent	escribir
+escribir:
+	.frame	$fp,40,$31		# vars= 0, regs= 3/0, args= 16, extra= 8
+	.mask	0xd0000000,-8
+	.fmask	0x00000000,0
+	.set	noreorder
+	.cpload	$25
+	.set	reorder
+	subu	$sp,$sp,40
+	.cprestore 16
+	sw	$31,32($sp)
+	sw	$fp,28($sp)
+	sw	$28,24($sp)
+	move	$fp,$sp
+	sw	$4,40($fp)
+	sw	$5,44($fp)
+	lw	$4,40($fp)
+	lw	$5,44($fp)
+	la	$25,fputc
+	jal	$31,$25
+	move	$3,$2
+	li	$2,-1			# 0xffffffffffffffff
+	bne	$3,$2,$L17
+	la	$25,__errno
+	jal	$31,$25
+	lw	$4,0($2)
+	la	$25,strerror
+	jal	$31,$25
+	la	$4,__sF+176
+	la	$5,$LC0
+	move	$6,$2
+	la	$25,fprintf
+	jal	$31,$25
+	li	$4,1			# 0x1
+	la	$25,exit
+	jal	$31,$25
+$L17:
+	move	$sp,$fp
+	lw	$31,32($sp)
+	lw	$fp,28($sp)
+	addu	$sp,$sp,40
+	j	$31
+	.end	escribir
+	.size	escribir, .-escribir
+	.rdata
+	.align	2
+$LC2:
+	.word	0
+	.word	3
+	.word	15
+	.word	0
+	.word	252
+	.word	240
+	.word	192
+	.word	63
+	.align	2
+$LC3:
+	.word	0
+	.word	4
+	.word	2
+	.word	0
+	.word	2
+	.word	4
+	.word	6
+	.word	0
+	.align	2
+$LC4:
+	.word	0
+	.word	2
+	.word	1
+	.align	2
+$LC1:
+	.ascii	"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123"
+	.ascii	"456789+/\000"
+	.text
+	.align	2
+	.globl	codificar
+	.ent	codificar
+	
 \end{document}
-
-

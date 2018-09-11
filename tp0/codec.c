@@ -13,7 +13,7 @@ void escribir (int c, FILE *salida)
 }
 
 /*
- * Ejemplo de entrada dividida en bloques de 6 bits: xxxxxx00 0000xxxx xx000000 xxxxxx00 0000xxxx
+ * Ejemplo de entrada dividida en bloques de 6 bits: xxxxxxOO OOOOxxxx xxOOOOOO xxxxxxOO OOOOxxxx
  *
  *	|     mascaras			| deltas | Faltan (=)
  * caso	| previo   actual		| <<  >> |
