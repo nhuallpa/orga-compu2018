@@ -14,6 +14,9 @@ echo -n Ma | ./tp0 #codificamos caracter ASCII M y a
 echo
 
 
+echo "Test Codifico y decodifico una imagen. Prueba de binarios"
+./tp0 -a encode -i recursos/linux-icon.png | ./tp0 -a decode -o recursos/linux-icon.png.b64 &&
+      diff -s recursos/linux-icon.png recursos/linux-icon.png.b64
 
 echo -n "Man" | ./tp0 #codificamos Man
 #TWFu
