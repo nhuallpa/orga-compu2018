@@ -39,7 +39,6 @@ yes | head -c 1024 | ./tp0 -a encode | ./tp0 -a decode | wc -c #verificamos que 
 echo
 
 #Generamos archivos de tamaño creciente
-#cat /dev/zero | ./tp0 -a encode
 
 n=1;
 while :; do
