@@ -17,6 +17,23 @@ typedef struct {
        char* salida;
 } Parametro;
 
+void imprimirAyuda() {
+	printf("Usage:\n");
+	printf("\ttp0 -h\n");
+	printf("\ttp0 -V\n");
+	printf("\ttp0 [ options ]\n");
+	
+	printf("Options:\n");
+	printf("\t-V, --version       Print version and quit.\n");
+	printf("\t-h, --help          Print this information.\n");
+	printf("\t-i, --input         Location of the input file.\n");
+	printf("\t-o, --output        Location of the output file.\n");
+	printf("\t-a, --action        Program action: encode (default) or decode.\n");
+	
+	printf("Examples:\n");
+	printf("\ttp0 -a encode -i ~/input -o ~/output\n");
+	printf("\ttp0 -a encode\n");
+}
 
 Parametro manejarArgumentosEntrada(int argc, char** argv)
 {
@@ -42,7 +59,6 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
 	parametro.accion 	= ENCODE;
 	parametro.entrada 	= "";
 	parametro.salida 	= ""; 
-
     while (1)
     {
         siguiente_opcion = getopt_long (argc, argv, op_cortas, op_largas, &option_index);
@@ -54,21 +70,7 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
         {
             case 'h' :
             
-                printf("Usage:\n");
-                printf("\ttp0 -h\n");
-                printf("\ttp0 -V\n");
-                printf("\ttp0 [ options ]\n");
-                
-                printf("Options:\n");
-                printf("\t-V, --version       Print version and quit.\n");
-                printf("\t-h, --help          Print this information.\n");
-                printf("\t-i, --input         Location of the input file.\n");
-                printf("\t-o, --output        Location of the output file.\n");
-                printf("\t-a, --action        Program action: encode (default) or decode.\n");
-                
-                printf("Examples:\n");
-                printf("\ttp0 -a encode -i ~/input -o ~/output\n");
-                printf("\ttp0 -a encode\n");
+                imprimirAyuda();
                 exit(0);
 	            break;
 
@@ -91,6 +93,11 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
                 if ( optarg )
 					parametro.salida = optarg;
             	break;
+			case '?':
+                /* getopt_long already printed an error message. */
+				imprimirAyuda();
+				exit(0);
+                break;
         }
     }
     
