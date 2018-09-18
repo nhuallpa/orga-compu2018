@@ -38,10 +38,10 @@ La decodificación se hará de a bloques de 4 bytes, aunque en principio se leen
 
 \section{Pruebas}
 \subsection{Código de pruebas.sh}
-\begin{verbatim}
+\begin{lstlisting}[language=c,breaklines=true]
 #! /bin/sh
 
-#Codificamos un archivo vacío (cantidad de bytes nula)
+#Codificamos un archivo vacio (cantidad de bytes nula)
 touch /tmp/zero.txt #creamos un archivo de texto vacio
 ./tp0 -a encode -i /tmp/zero.txt -o /tmp/zero.txt.b64
 ls -l /tmp/zero.txt.b64
@@ -88,7 +88,7 @@ yes | head -c 1024 | ./tp0 -a encode | ./tp0 -a decode | wc -c
 #1024
 echo
 
-#Generamos archivos de tamaño creciente, y verificamos que el procesamiento
+#Generamos archivos de largo creciente, y verificamos que el procesamiento
 de nuestro programa no altere los datos
 
 n=1;
@@ -114,15 +114,15 @@ n=\$((\$n+1));
 
 rm -f /tmp/in.bin /tmp/out.b64 /tmp/out.bin
 done
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{Salida de pruebas.sh}
-\begin{verbatim}
+\begin{lstlisting}[language=c,breaklines=true]
 -rw-r--r-- 1 sebastian sebastian 0 sep 11 16:00 /tmp/zero.txt.b64
 TQ==
 TWE=
 Test Codifico y decodifico una imagen. Prueba de binarios
-Los archivos recursos/linux-icon.png y recursos/linux-icon.png.b64 son idénticos
+Los archivos recursos/linux-icon.png y recursos/linux-icon.png.b64 son identicos
 TWFu
 Man
 
@@ -156,13 +156,13 @@ ok: 3
 ok: 4
 ok: 5
 [...]
-\end{verbatim}
+\end{lstlisting}
 
 \section{Código en C}
 
 \subsection{main.c}
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C,breaklines=true]
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -308,7 +308,7 @@ int main (int argc, char** argv) {
 
 \subsection{codec.h}
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C,breaklines=true]
 #ifndef CODEC_H
 #define CODEC_H
 
@@ -322,7 +322,7 @@ void decodificar (FILE *entrada, FILE *salida);
 
 \subsection{codec.c}
 
-\begin{lstlisting}[language=C]
+\begin{lstlisting}[language=C,breaklines=true]
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -487,9 +487,10 @@ void decodificar (FILE *entrada, FILE *salida)
 }
 \end{lstlisting}
 
+
 \section{Codigo de ensamblado MIPS32}
 \subsection{main.s}
-\begin{verbatim}
+\begin{lstlisting}[language=c,breaklines=true]
 	.file	1 "main.c"
 	.section .mdebug.abi32
 	.previous
@@ -542,10 +543,10 @@ $LC8:
 	.word	0
 	.word	86
 	.word	$LC5
-\end{verbatim}
+\end{lstlisting}
 
 \subsection{codec.s}
-\begin{verbatim}
+\begin{lstlisting}[language=c,breaklines=true]
 	.file	1 "codec.c"
 	.section .mdebug.abi32
 	.previous
@@ -598,8 +599,7 @@ $L17:
 	lw	$31,32($sp)
 	lw	$fp,28($sp)
 	addu	$sp,$sp,40
-\end{verbatim}
-
+\end{lstlisting}
 
 \section{Enunciado}
 
