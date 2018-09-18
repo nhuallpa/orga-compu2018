@@ -1,9 +1,7 @@
 \documentclass[a4paper,11pt, margin=1in]{article}
-\usepackage[left=2cm, right=5cm, top=2cm]{geometry}
+\usepackage[left=3cm, right=3cm, top=2cm]{geometry}
 \usepackage[utf8]{inputenc}
 \usepackage{listings}
-
-
 
 
 \renewcommand*\contentsname{Contenido}
@@ -35,7 +33,6 @@ La codificación se hace posible con la agrupación de casos que conforman la so
 \subsection{Decodificación}
 Se incluye una tabla de decodificación generada con la función crear\_tabla\_de\_decodificacion (incluida en el código), con ésta se podrán traducir los caracteres a decodificar a su índice dentro de la tabla de codificación, para de este modo poder concatenarlos y obtener la salida. Se tendrá en cuenta los caracteres inválidos, como por ejemplo '.', '!', etc o un '=' que no se encuentre en el lugar de caracter de relleno.
 La decodificación se hará de a bloques de 4 bytes, aunque en principio se leen de a 5 bytes para estar seguros de que en los primeros 4 no habrá caracteres de relleno. El programa finaliza decodificando el final de la entrada, verificando que el número de caracteres de relleno sea el correcto.
-
 
 
 
@@ -163,6 +160,10 @@ ok: 5
 
 \section{Código en C}
 \subsection{main.c}
+
+
+
+
 \begin{verbatim}
 #include <stdio.h>
 #include <stdlib.h>

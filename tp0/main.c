@@ -106,18 +106,32 @@ int main(int argc, char** argv) {
 	
 	int isEntradaArchivo = strcmp(p.entrada,"");
 	int isSalidaArchivo = strcmp(p.salida,"");
-	
+	int isEntradaEstandar = strcmp(p.entrada,"-");
+	int isSalidaEstandar = strcmp(p.salida,"-");
+	if (!isEntradaEstandar) {
+		isEntradaArchivo = 0;
+	}
+	if (!isSalidaEstandar) {
+		isSalidaArchivo = 0;
+	}	
 	//Si la entrada esta vacia lee stdin (teclado)
 	FILE* archivoEntrada = (isEntradaArchivo!=0)?fopen(p.entrada, "rb"):stdin; 
 	//Si la salida esta vacia escribe stdout (pantalla)
-	FILE* archivoSalida = (isSalidaArchivo!=0)?fopen ( p.salida, "w" ):stdout; 
+	FILE* archivoSalida = (isSalidaArchivo!=0) ? fopen( p.salida, "w" ):stdout; 
 
+	if (!archivoEntrada) {
+		fprintf(stderr, "ERROR: EL ARCHIVO DE ENTRADA NO SE ENCUENTRA\n");
+		exit(1);
+	} else if (!archivoSalida) {
+		fprintf(stderr, "ERROR: EL ARCHIVO DE SALIDA NO SE ENCUENTA\n");
+		exit(1);
+	}
 	if (strcmp(p.accion, ENCODE) == 0) {
 		codificar (archivoEntrada, archivoSalida);
 	} else if (strcmp(p.accion, DECODE) == 0) {
 		decodificar (archivoEntrada, archivoSalida);
 	} else {
-		fprintf(stderr, "ERROR: SE DEBE INGRESAR UN ARGUMENTO CORRECTO PARA LA OPCION i.\n");
+		fprintf(stderr, "ERROR: SE DEBE INGRESAR UN ARGUMENTO CORRECTO PARA LA OPCION\n");
 	}
 
 	if (isEntradaArchivo!=0) {
