@@ -34,48 +34,54 @@ void escribir (int c, FILE *salida)
 /*
  * Ejemplo de entrada dividida en bloques de 6 bits: xxxxxxOO OOOOxxxx xxOOOOOO xxxxxxOO OOOOxxxx
  *
- *	|     mascaras			| deltas | Faltan (=)
- * caso	| previo   actual		| <<  >> |
+ *	    |     mascaras			    | deltas | Faltan (=)
+ * caso	| previo   actual		    | <<  >> |
  * 0	| 00000000 xxxxxx00	00 fc	|  0  2	 | 2
  * 1	| 000000xx xxxx0000	03 f0	|  4  4  | 1
  * 2	| 0000xxxx xx000000	0f c0	|  2  6  | 0
- *                    |
+ * Se leyo que falta para el previo y el actual completo:
  * 3	| 00000000 00xxxxxx	00 3f	|  0  0  | 0
  * luego repite
  */	
 
-void codificar (FILE *entrada, FILE *salida)
-{
-	const char *tabla = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const int previo = 0;
-	const int actual = 1;
-	const int mascara[2][4] = {{0x00, 0x03, 0x0f, 0x00}, {0xfc, 0xf0, 0xc0, 0x3f}};
-	const int delta[2][4] = {{0, 4, 2, 0}, {2, 4, 6, 0}};
-	const int faltantes[3] = {0, 2, 1};
-	int b[2] = {0};
+const char *tabla = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+const int mascaraprevio[4] = {0x00, 0x03, 0x0f, 0x00};
+const int mascaraactual[4] = {0xfc, 0xf0, 0xc0, 0x3f};
+const int deltaprevio[4] = {0, 4, 2, 0};
+const int deltaactual[4] = {2, 4, 6, 0};
+const int faltantes[3] = {0, 2, 1};
+
+void codificar (FILE *entrada, FILE *salida) {	
+	int byteleido_previo = 0;
+	int byteleido_actual = 0;
 	int caso = 0;
-	while ((b[actual] = fgetc (entrada)) != EOF) {
-		int i = ((b[previo] & mascara[previo][caso]) << delta[previo][caso]) |
-			((b[actual] & mascara[actual][caso]) >> delta[actual][caso]);
-		escribir (tabla[i], salida);
+	byteleido_actual = fgetc(entrada);
+	
+	while (byteleido_actual != EOF) {
+		int indice = ((byteleido_previo & mascaraprevio[caso]) << deltaprevio[caso]) |
+					 ((byteleido_actual & mascaraactual[caso]) >> deltaactual[caso]);
+		escribir (tabla[indice], salida);
 		caso++;
 		if (caso == 3) {
-			i = (b[actual] & mascara[actual][caso]);
-			escribir (tabla[i], salida);
+			indice = (byteleido_actual & mascaraactual[caso]);
+			escribir (tabla[indice], salida);
 			caso = 0;
 		}
-		b[previo] = b[actual];
+		
+		byteleido_previo = byteleido_actual;
+		byteleido_actual = fgetc(entrada);
 	}
 	if (faltantes[caso] == 1) {
-		int i = (b[previo] & 0x0f) << 2;
-		escribir (tabla[i], salida);
+		int indice = (byteleido_previo & 0x0f) << 2;
+		escribir (tabla[indice], salida);
 	} else if (faltantes[caso] == 2) {
-		int i = (b[previo] & 0x03) << 4;
-		escribir (tabla[i], salida);
+		int indice = (byteleido_previo & 0x03) << 4;
+		escribir (tabla[indice], salida);
 	}
-	for (int i = 0; i < faltantes[caso]; i++) {
+	for (int k = 0; k < faltantes[caso]; k++) {
 		escribir ('=', salida);
-	}
+	}	
 }
 
 void crear_tabla_de_decodificacion ()
