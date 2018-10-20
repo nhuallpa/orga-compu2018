@@ -52,6 +52,32 @@ const int deltaprevio[4] = {0, 4, 2, 0};
 const int deltaactual[4] = {2, 4, 6, 0};
 const int faltantes[3] = {0, 2, 1};
 
+int calcular_indice(int byteleido_previo, int byteleido_actual , int caso) {
+	int indice = -1;
+	if (caso == 3) {
+		indice = (byteleido_actual & mascaraactual[caso]);
+	} else {
+		indice = ((byteleido_previo & mascaraprevio[caso]) << deltaprevio[caso]) |
+				((byteleido_actual & mascaraactual[caso]) >> deltaactual[caso]);
+	}
+	return indice;
+}
+
+int escribir_faltantes(int byteleido_previo, int caso, FILE* salida) {
+	int faltan = faltantes[caso];
+	if (faltan == 1) {
+		int indice = (byteleido_previo & 0x0f) << 2;
+		escribir (tabla[indice], salida);
+	} else if (faltan == 2) {
+		int indice = (byteleido_previo & 0x03) << 4;
+		escribir (tabla[indice], salida);
+	}
+	for (int k = 0; k < faltan; k++) {
+		escribir ('=', salida);
+	}	
+	return 1;
+}
+
 void codificar (FILE *entrada, FILE *salida) {	
 	int byteleido_previo = 0;
 	int byteleido_actual = 0;
@@ -59,12 +85,13 @@ void codificar (FILE *entrada, FILE *salida) {
 	byteleido_actual = fgetc(entrada);
 	
 	while (byteleido_actual != EOF) {
-		int indice = ((byteleido_previo & mascaraprevio[caso]) << deltaprevio[caso]) |
-					 ((byteleido_actual & mascaraactual[caso]) >> deltaactual[caso]);
+		
+		int indice = calcular_indice(byteleido_previo, byteleido_actual,caso);
 		escribir (tabla[indice], salida);
+		
 		caso++;
 		if (caso == 3) {
-			indice = (byteleido_actual & mascaraactual[caso]);
+			indice = calcular_indice(byteleido_previo, byteleido_actual,caso);
 			escribir (tabla[indice], salida);
 			caso = 0;
 		}
@@ -72,16 +99,8 @@ void codificar (FILE *entrada, FILE *salida) {
 		byteleido_previo = byteleido_actual;
 		byteleido_actual = fgetc(entrada);
 	}
-	if (faltantes[caso] == 1) {
-		int indice = (byteleido_previo & 0x0f) << 2;
-		escribir (tabla[indice], salida);
-	} else if (faltantes[caso] == 2) {
-		int indice = (byteleido_previo & 0x03) << 4;
-		escribir (tabla[indice], salida);
-	}
-	for (int k = 0; k < faltantes[caso]; k++) {
-		escribir ('=', salida);
-	}	
+
+	escribir_faltantes(byteleido_previo, caso, salida);	
 }
 
 void crear_tabla_de_decodificacion ()
