@@ -1,11 +1,18 @@
 #include <mips/regdef.h>
 #include <sys/syscall.h>
 
+# STACKFRAME: ABA(16) + LA(16) + SRA(16)
 
-#define ENCODE_STACK_SIZE       64
-#define ENCODE_VAR_RA           60
-#define ENCODE_VAR_GP           56
-#define ENCODE_VAR_FP           52
+#define ENCODE_A1               52
+#define ENCODE_A0               48
+#define ENCODE_STACK_SIZE       48
+#define ENCODE_VAR_RA           40
+#define ENCODE_VAR_FP           36
+#define ENCODE_VAR_GP           32
+#define ENCODE_ACTUAL           24
+#define ENCODE_PREVIO           20
+#define ENCODE_CASO             16
+
 
     .text
     .abicalls
@@ -22,8 +29,10 @@ base64_encode:
     sw            ra, ENCODE_VAR_RA(sp)       #save ra      
     sw            $fp, ENCODE_VAR_FP(sp)      #save $fp
     move          $fp, sp
-
-
+    sw            $zero, ENCODE_ACTUAL($fp)
+    sw            $zero, ENCODE_PREVIO($fp)
+    sw            $zero, ENCODE_CASO($fp)
+    
 
 
     .end          base64_encode
@@ -31,12 +40,15 @@ base64_encode:
 # funcion calcular_indice es una funcion leaf,
 # o sea que no requiere seccion ABA,
 # No requiere guardar RA
-#define CAL_IDX_ARG2        24
-#define CAL_IDX_ARG1        20
-#define CAL_IDX_ARG0        16
-#define CAL_IDX_FRAME_SIZE  16
-#define CAL_IDX_VAR_GP      0
+
+# STACKFRAME: SRA(8)
+
+#define CAL_IDX_ARG2        16
+#define CAL_IDX_ARG1        12
+#define CAL_IDX_ARG0        8
+#define CAL_IDX_FRAME_SIZE  8
 #define CAL_IDX_VAR_SP      4
+#define CAL_IDX_VAR_GP      0
 
     .text
     .align 2
@@ -86,13 +98,17 @@ retornar_indice:
 
 # escribir caracteres faltantes
 # es una funcion no-leaf
+
+#STACKFRAME: ABA(16) + SRA(16)
+
 #define         FALTANTES_A2            40
 #define         FALTANTES_A1            36
 #define         FALTANTES_A0            32
 #define         FALTANTES_FRAME_SIZE    32
-#define         FALTANTES_GP            16
-#define         FALTANTES_FP            20
 #define         FALTANTES_RA            24
+#define         FALTANTES_FP            20
+#define         FALTANTES_GP            16
+
     .text
     .align      2
     .globl      escribir_faltantes
@@ -138,10 +154,13 @@ retornar_estado:
     addu        sp, sp FALTANTES_FRAME_SIZE
     jr		    $ra					# jump to $ra
     .end        escribir_faltantes
-    
-     
 
-#define         ESCRIBIR_A1             32
+
+
+
+#STACKFRAME: ABA(16) + SRA(16)
+
+#define         ESCRIBIR_A1             36
 #define         ESCRIBIR_A0             32
 #define         ESCRIBIR_FRAME_SIZE     32
 #define         ESCRIBIR_RA             24
