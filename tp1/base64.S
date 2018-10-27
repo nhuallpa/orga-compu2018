@@ -1,14 +1,17 @@
 #include <mips/regdef.h>
 #include <sys/syscall.h>
 
-# STACKFRAME: ABA(16) + LA(16) + SRA(16)
+# STACKFRAME: ABA(16) + LA(24) + SRA(16)
 
-#define ENCODE_A1               52
-#define ENCODE_A0               48
-#define ENCODE_STACK_SIZE       48
-#define ENCODE_VAR_RA           40
-#define ENCODE_VAR_FP           36
-#define ENCODE_VAR_GP           32
+#define ENCODE_FDOUT            60
+#define ENCODE_FDIN             56
+#define ENCODE_STACK_SIZE       56
+#define ENCODE_VAR_RA           48
+#define ENCODE_VAR_FP           44
+#define ENCODE_VAR_GP           40
+#define ENCODE_FILLER           36
+#define ENCODE_CODRETORNO       32
+#define ENCODE_INDICE           28
 #define ENCODE_ACTUAL           24
 #define ENCODE_PREVIO           20
 #define ENCODE_CASO             16
@@ -20,21 +23,105 @@
     .globl base64_encode 
     .ent base64_encode
 base64_encode:
-    .frame        $fp, ENCODE_STACK_SIZE, ra  
-    .set          noreorder
-    .cpload       t9
-    .set          reorder
-    subu          sp, sp, ENCODE_STACK_SIZE      
-    .cprestore    ENCODE_VAR_GP
-    sw            ra, ENCODE_VAR_RA(sp)       #save ra      
-    sw            $fp, ENCODE_VAR_FP(sp)      #save $fp
-    move          $fp, sp
-    sw            $zero, ENCODE_ACTUAL($fp)
-    sw            $zero, ENCODE_PREVIO($fp)
-    sw            $zero, ENCODE_CASO($fp)
+    .frame      $fp, ENCODE_STACK_SIZE, ra  
+    .set        noreorder
+    .cpload     t9
+    .set        reorder
+    subu        sp, sp, ENCODE_STACK_SIZE      
+    .cprestore  ENCODE_VAR_GP
+    sw          ra, ENCODE_VAR_RA(sp)       #save ra      
+    sw          $fp, ENCODE_VAR_FP(sp)      #save $fp
+    move        $fp, sp
+    sw          $zero, ENCODE_ACTUAL($fp)
+    sw          $zero, ENCODE_PREVIO($fp)
+    sw          $zero, ENCODE_CASO($fp)
+
+leer_siguiente:
+    sw          a0, ENCODE_FDIN($fp)
+    sw          a1, ENCODE_FDOUT($fp) 
+    lw          t0, ENCODE_FDIN($fp)
+    mv          a0, t0
+    la          a1, byte_leido 
+    li          a2, 1
+    lw          v0, SYS_read
+    syscall
+    bnez        a3, error_lectura_encode
+    beqz        v0, ultimo_paso             # es EOF, vamos al ultimo paso
+
+    # calculamos indice
+    lb		    a0, ENCODE_PREVIO($fp)	
+    lb          a1, ENCODE_ACTUAL($fp)
+    lw          a2, ENCODE_CASO($fp)
+    jal         calcular_indice
+    sw		    v0, ENCODE_INDICE($fp)	   # guardo indice calculado
     
+    lw          t0, ENCODE_INDICE($fp)
+    la          t1, tabla
+    addu        t1, t1, v0                 # posiciono en tabla[indice]   
+    lb          t2, 0(t1)                  # tengo el valor de tabla[indice]
+    la          t3, buffer_escribir
+    sb          t2, 0(t3)                  # guardo el valor a escribir el buffer
 
+    ## escribimos
+    la          a0, buffer_escribir
+    lw          a1, ENCODE_FDOUT($fp)
+    jal         escribir
+    bnez        v0, error_escritura_encode
 
+    # Actualizo el numero de caso
+    lw          t0, ENCODE_CASO($fp)
+    addui       t0, t0, 1                  # caso++
+    sw          t0, ENCODE_CASO($fp)
+
+    lw          t0, ENCODE_CASO($fp)
+    li          t1, 3
+    bneq        t0, t1, preparar_leer     # salto si no estoy en CASO:3
+
+    # calculamos indice EN CASO 3
+    lb		    a0, ENCODE_PREVIO($fp)	
+    lb          a1, ENCODE_ACTUAL($fp)
+    lw          a2, ENCODE_CASO($fp)
+    jal         calcular_indice
+    sw		    v0, ENCODE_INDICE($fp)	   # guardo indice calculado
+    
+    ## escribimos EN CASO 3
+    la          a0, buffer_escribir
+    lw          a1, ENCODE_FDOUT($fp)
+    jal         escribir
+    bnez        v0, error_escritura_encode
+
+    sw          $zero, ENCODE_CASO($fp)    # reiniciamos el contador de caso
+
+preparar_leer:
+    lb          t0, ENCODE_ACTUAL($fp)
+    sb          t0, ENCODE_PREVIO($fp)
+    j           leer_siguiente
+
+error_escritura_encode:
+    li          t0, 4
+    sw          t0, ENCODE_CODRETORNO($fp)
+    j           retornar_encode
+error_lectura_encode:
+    li          t0, 3
+    sw          t0, ENCODE_CODRETORNO($fp)
+    j           retornar_encode
+
+ultimo_paso:
+    ## llamar a escribir_faltantes
+    lb          a0, ENCODE_PREVIO($fp)
+    lw          a1, ENCODE_CASO($fp)
+    lw          a2, ENCODE_FDOUT($fp)
+    jal         escribir_faltantes
+    bnez        v0, error_escritura_encode
+
+retornar_encode:
+    lw          v0, ENCODE_CODRETORNO($fp)
+    mv          sp, $fp
+    lw          gp, ENCODE_VAR_GP(sp)
+    lw          $fp, ENCODE_VAR_FP(sp)
+    lw          ra, ENCODE_VAR_RA(sp)
+    addu        sp, sp, ENCODE_STACK_SIZE
+    jr          ra
     .end          base64_encode
 
 # funcion calcular_indice es una funcion leaf,
@@ -205,6 +292,8 @@ retornar_escribir:
 .data
 .align 2
 buffer_escribir:   .byte  0x00  
+.align 2
+byte_leido:        .byte  0
 .rdata
 .align 2
 mascaraactual:     .byte  0xfc, 0xf0, 0xc0, 0x3f
@@ -212,5 +301,15 @@ mascaraprevio:     .byte  0x00, 0x03, 0x0f, 0x00
 deltaprevio:       .byte  0, 4, 2, 0
 deltaactual:       .byte  2, 4, 6, 0
 faltantes:         .word  0, 2, 1
+
+.globl errmsg
+    errmsg: .word msg_error_lectura_decodif, msg_error_escritura_decodif, msg_error_lectura_codif, msg_error_escritura_codif
+    .align 2
+    msg_error_ninguno: .asciiz "No hubo errores."
+    msg_error_lectura_decodif: .asciiz "Hubo un error en la lectura del archivo a decodificar."
+    msg_error_escritura_decodif: .asciiz "Hubo un error en la escritura del archivo para la decodificacion."
+    msg_error_lectura_codif: .asciiz "Hubo un error en la lectura del archivo para codificar."
+    msg_error_escritura_codif: .asciiz "Hubo un error en la escritura del archivo cuando codificamos"
+
 .align 2
 tabla:             .asciiz   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
