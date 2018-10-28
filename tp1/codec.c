@@ -4,25 +4,6 @@
 #include <stdlib.h>
 #include "codec.h"
 
-/**
-* Codifica a base 64
-* @param int File descriptor de entrada
-* @param int File descriptor de salida
-**/
-int base64_encode(int infd, int outfd){
-	return -1;
-}
-
-/**
-* Decodifica base 64
-* @param int File descriptor de salida
-* @param int File descriptor de entrada
-**/
-int base64_decode(int infd, int outfd){
-	return -1;
-}
-
-
 void escribir (int c, FILE *salida)
 {
 	if (fputc (c, salida) == EOF) {
@@ -72,7 +53,8 @@ int escribir_faltantes(int byteleido_previo, int caso, FILE* salida) {
 		int indice = (byteleido_previo & 0x03) << 4;
 		escribir (tabla[indice], salida);
 	}
-	for (int k = 0; k < faltan; k++) {
+	int k = 0;
+	for (k = 0; k < faltan; k++) {
 		escribir ('=', salida);
 	}	
 	return 1;
@@ -109,15 +91,16 @@ void crear_tabla_de_decodificacion ()
 
 	const int largo = 256;
 	char tabla[largo];
-	for (int i = 0; i < largo; i++) {
+	int i=0;
+	for (i = 0; i < largo; i++) {
 		tabla[i] = -1;
 	}
 	unsigned char c;
-	int i = 0;
+	i = 0;
 	while ((c = tabla_codificacion[i]) != '\0') {
 		tabla[c] = i++;
 	}
-	for (int i = 0; i < largo; i++) {
+	for (i = 0; i < largo; i++) {
 		if ( i % 16 == 0 ) fprintf (stderr, "\n");
 		fprintf (stderr, "0x%02x, ", tabla[i]);
 	}
@@ -144,7 +127,8 @@ void resolver (char *b, int largo)
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 	};
-	for (int i = 0; i < largo; i++) {
+	int i = 0;
+	for (i = 0; i < largo; i++) {
 		unsigned char c = b[i];
 		if (b[i] == -1) {
 			fprintf (stderr, "Error: Caracter '%c' ilegal en la entrada\n", c);

@@ -16,7 +16,6 @@
 #define ENCODE_PREVIO           20
 #define ENCODE_CASO             16
 
-
     .text
     .abicalls
     .align 2
@@ -32,15 +31,15 @@ base64_encode:
     sw          ra, ENCODE_VAR_RA(sp)       #save ra      
     sw          $fp, ENCODE_VAR_FP(sp)      #save $fp
     move        $fp, sp
-    sw          $zero, ENCODE_ACTUAL($fp)
-    sw          $zero, ENCODE_PREVIO($fp)
-    sw          $zero, ENCODE_CASO($fp)
+    sw          zero, ENCODE_ACTUAL($fp)
+    sw          zero, ENCODE_PREVIO($fp)
+    sw          zero, ENCODE_CASO($fp)
 
 leer_siguiente:
     sw          a0, ENCODE_FDIN($fp)
     sw          a1, ENCODE_FDOUT($fp) 
     lw          t0, ENCODE_FDIN($fp)
-    mv          a0, t0
+    move        a0, t0
     la          a1, byte_leido 
     li          a2, 1
     lw          v0, SYS_read
@@ -52,7 +51,7 @@ leer_siguiente:
     lb		    a0, ENCODE_PREVIO($fp)	
     lb          a1, ENCODE_ACTUAL($fp)
     lw          a2, ENCODE_CASO($fp)
-    jal         calcular_indice
+    jal         calc_indice
     sw		    v0, ENCODE_INDICE($fp)	   # guardo indice calculado
     
     lw          t0, ENCODE_INDICE($fp)
@@ -65,32 +64,32 @@ leer_siguiente:
     ## escribimos
     la          a0, buffer_escribir
     lw          a1, ENCODE_FDOUT($fp)
-    jal         escribir
+    jal         escribir_byte
     bnez        v0, error_escritura_encode
 
     # Actualizo el numero de caso
     lw          t0, ENCODE_CASO($fp)
-    addui       t0, t0, 1                  # caso++
+    addiu       t0, t0, 1                  # caso++
     sw          t0, ENCODE_CASO($fp)
 
     lw          t0, ENCODE_CASO($fp)
     li          t1, 3
-    bneq        t0, t1, preparar_leer     # salto si no estoy en CASO:3
+    bne        t0, t1, preparar_leer     # salto si no estoy en CASO:3
 
     # calculamos indice EN CASO 3
     lb		    a0, ENCODE_PREVIO($fp)	
     lb          a1, ENCODE_ACTUAL($fp)
     lw          a2, ENCODE_CASO($fp)
-    jal         calcular_indice
+    jal         calc_indice
     sw		    v0, ENCODE_INDICE($fp)	   # guardo indice calculado
     
     ## escribimos EN CASO 3
     la          a0, buffer_escribir
     lw          a1, ENCODE_FDOUT($fp)
-    jal         escribir
+    jal         escribir_byte
     bnez        v0, error_escritura_encode
 
-    sw          $zero, ENCODE_CASO($fp)    # reiniciamos el contador de caso
+    sw          zero, ENCODE_CASO($fp)    # reiniciamos el contador de caso
 
 preparar_leer:
     lb          t0, ENCODE_ACTUAL($fp)
@@ -107,16 +106,16 @@ error_lectura_encode:
     j           retornar_encode
 
 ultimo_paso:
-    ## llamar a escribir_faltantes
+    ## llamar a escrib_faltantes
     lb          a0, ENCODE_PREVIO($fp)
     lw          a1, ENCODE_CASO($fp)
     lw          a2, ENCODE_FDOUT($fp)
-    jal         escribir_faltantes
+    jal         escrib_faltantes
     bnez        v0, error_escritura_encode
 
 retornar_encode:
     lw          v0, ENCODE_CODRETORNO($fp)
-    mv          sp, $fp
+    move          sp, $fp
     lw          gp, ENCODE_VAR_GP(sp)
     lw          $fp, ENCODE_VAR_FP(sp)
     lw          ra, ENCODE_VAR_RA(sp)
@@ -124,37 +123,41 @@ retornar_encode:
     jr          ra
     .end          base64_encode
 
-# funcion calcular_indice es una funcion leaf,
+# funcion calc_indice es una funcion leaf,
 # o sea que no requiere seccion ABA,
 # No requiere guardar RA
 
 # STACKFRAME: SRA(8)
 
-#define CAL_IDX_ARG2        16
-#define CAL_IDX_ARG1        12
-#define CAL_IDX_ARG0        8
+#define CAL_IDX_CASO        16
+#define CAL_IDX_ACTUAL        12
+#define CAL_IDX_PREVIO        8
 #define CAL_IDX_FRAME_SIZE  8
 #define CAL_IDX_VAR_SP      4
 #define CAL_IDX_VAR_GP      0
 
     .text
     .align 2
-    .globl calcular_indice
-    .ent calcular_indice
-calcular_indice:
+    .globl calc_indice
+    .ent calc_indice
+calc_indice:
+    .frame      $fp, CAL_IDX_FRAME_SIZE, ra  
+    .set        noreorder
+    .cpload     t9
+    .set        reorder
     subu        sp, sp, CAL_IDX_FRAME_SIZE
-    sw          gp, 0(sp)
+    .cprestore  CAL_IDX_VAR_GP
     sw          $fp, 4(sp)
-    mv          $fp, sp
-    sw          a0, CAL_IDX_ARG0($fp)  # byteleido_previo
-    sw          a1, CAL_IDX_ARG1($fp)  # byteleido_actual
-    sw          a2, CAL_IDX_ARG2($fp)  # caso
+    move        $fp, sp
+    sw          a0, CAL_IDX_PREVIO($fp)  # byteleido_previo
+    sw          a1, CAL_IDX_ACTUAL($fp)  # byteleido_actual
+    sw          a2, CAL_IDX_CASO($fp)  # caso
     li          t0, 3
     bne		    a2, t0, caso012	        # if caso != 3 then caso012
     la          t1, mascaraactual
     lb		    t2, 3(t1)		        # leo mascaraactual[3]
-    lb          t3, a1
-    andu        v0, t3, t2
+    move        t3, a1
+    and        v0, t3, t2
     j		    retornar_indice			# jump to retornar_indice
 caso012:
     la          t1, mascaraactual
@@ -169,80 +172,103 @@ caso012:
     la          t1, deltaprevio
     addu        t1, t1, a2
     lb          t5, 0(t1)               # t5 := deltaprevio[caso]
-    andu        t6, a0, t3
+    and         t6, a0, t3
     sll         t6, t6, t5              # t6 := (byteleido_previo & mascaraprevio[caso]) << deltaprevio[caso]
-    andu        t7, a1, t2
+    and         t7, a1, t2
     srl         t7, t7, t4              # t7 := (byteleido_actual & mascaraactual[caso]) >> deltaactual[caso] 
     or          v0, t6, t7
 retornar_indice:
     move        sp, $fp
-    lw		    $gp, 0(sp)		
+    lw		    gp, 0(sp)		
     lw          $fp, 4(sp)
     addu        sp, sp, CAL_IDX_FRAME_SIZE
-    jr		    $ra					# jump to $ra
-    .end        calcular_indice 
+    jr		    ra					# jump to $ra
+    .end        calc_indice 
 
 
 # escribir caracteres faltantes
 # es una funcion no-leaf
 
-#STACKFRAME: ABA(16) + SRA(16)
+#STACKFRAME: ABA(16) + LA(8) + SRA(16)
 
-#define         FALTANTES_A2            40
-#define         FALTANTES_A1            36
-#define         FALTANTES_A0            32
-#define         FALTANTES_FRAME_SIZE    32
-#define         FALTANTES_RA            24
-#define         FALTANTES_FP            20
-#define         FALTANTES_GP            16
+#define         FALTANTES_FDOUT         48
+#define         FALTANTES_CASO          44
+#define         FALTANTES_PREVIO        40
+#define         FALTANTES_FRAME_SIZE    40
+#define         FALTANTES_RA            32
+#define         FALTANTES_FP            28
+#define         FALTANTES_GP            24
+#define         FALTANTES_FALTAN        20
+#define         FALTANTES_K             16
+
 
     .text
     .align      2
-    .globl      escribir_faltantes
-    .ent        escribir_faltantes
-escribir_faltantes:
+    .abicalls
+    .globl      escrib_faltantes
+    .ent        escrib_faltantes
+escrib_faltantes:
+    .frame      $fp, FALTANTES_FRAME_SIZE, ra  
+    .set        noreorder
+    .cpload     t9
+    .set        reorder
     subu        sp, sp, FALTANTES_FRAME_SIZE
-    sw		    gp, FALTANTES_GP(sp)	
+    .cprestore  FALTANTES_GP	
     sw		    $fp, FALTANTES_FP(sp)
     sw		    ra, FALTANTES_RA(sp)		
     move		$fp, sp
-    sw          a0, FALTANTES_A0($fp)   # a0: byteleido_previo
-    sw          a1, FALTANTES_A1($fp)   # a1: caso
-    sw          a2, FALTANTES_A2($fp)   # a2: file descriptor output
+    sw          a0, FALTANTES_PREVIO($fp)   # a0: byteleido_previo
+    sw          a1, FALTANTES_CASO($fp)     # a1: caso
+    sw          a2, FALTANTES_FDOUT($fp)    # a2: file descriptor output
     la          t1, faltantes
-    sll         t2, t2, a1              # calculo indice para array de word
+    sll         t2, t2, a1                  # calculo indice para array de word
     addu        t1, t1, t2
-    lw		    t1, 0(t1)		        # t1 : faltann = faltantes[caso] 
+    lw		    t1, 0(t1)		            # t1 : faltann = faltantes[caso] 
+    sw		    t1, FALTANTES_FALTAN($fp)
     li          t2, 1
-    bneq        t1, t2, faltan2
+    bne         t1, t2, faltan2
     andi        t3, a0, 0x0f
     sll         t3, t3, 2               # t3: indice = (byteleido_previo & 0x0f) << 2
     la	        t4, tabla		         
     addu        t4, t4, t3              # *tabla + indice  apunto al byte que esta en la posicion indice
     lb          a0, 0(t4)               # a0 := tabla[indice] 
-    jal		    escribir				# jump to target and save position to $ra
+    jal		    escribir_byte				# jump to target and save position to $ra
+    bnez        v0, error_escritura_faltantes
+
 faltan2:
     li          t2, 2
-    bneq        t1, t2, retornar_estado
+    lw          t1, FALTANTES_FALTAN($fp)
+    bne         t1, t2, retornar_faltantes
     andi        t3, a0, 0x03
     sll         t3, t3, 4               # t3: indice = (byteleido_previo & 0x0f) << 2
     la	        t4, tabla		         
     addu        t4, t4, t3              # *tabla + indice  apunto al byte que esta en la posicion indice
     lb          a0, 0(t4)               # a0 := tabla[indice] 
-    jal		    escribir				# jump to target and save position to $ra
-fork:
-    continuar por aca    
-
-retornar_estado:
+    jal		    escribir_byte				# jump to target and save position to $ra
+    bnez        v0, error_escritura_faltantes
+for_k:
+    lw          t0, FALTANTES_K($fp)
+    lw          t1, FALTANTES_FALTAN($fp)
+    bge		    t0, t1, retornar_faltantes;
+    la          a0, CHAR_IGUAL
+    lw          a1, FALTANTES_FDOUT($fp)
+    bnez        v0, error_escritura_faltantes
+    lw          t0, FALTANTES_K($fp)
+    addiu       t0, t0, 1
+    sw          t0, FALTANTES_K($fp)
+    j		    for_k				# jump to for_k
+    
+error_escritura_faltantes:
+    li          v0, 4
+    j           retornar_faltantes
+retornar_faltantes:
     move        sp, $fp
     lw		    gp, FALTANTES_GP(sp)
     lw          $fp, FALTANTES_FP(sp)
     lw          ra, FALTANTES_RA(sp)
-    addu        sp, sp FALTANTES_FRAME_SIZE
-    jr		    $ra					# jump to $ra
-    .end        escribir_faltantes
-
-
+    addu        sp, sp, FALTANTES_FRAME_SIZE
+    jr		    ra		      
+    .end        escrib_faltantes
 
 
 #STACKFRAME: ABA(16) + SRA(16)
@@ -255,11 +281,17 @@ retornar_estado:
 #define         ESCRIBIR_GP             16
 
     .text
+    .abicalls
     .align      2
-    .globl      escribir
-    .ent        escribir
-escribir:
+    .globl      escribir_byte
+    .ent        escribir_byte
+escribir_byte:
+    .frame      $fp, ESCRIBIR_FRAME_SIZE, ra  
+    .set        noreorder
+    .cpload     t9
+    .set        reorder
     subu        sp, sp, ESCRIBIR_FRAME_SIZE
+    .cprestore  ESCRIBIR_FRAME_SIZE
     sw          gp, ESCRIBIR_GP(sp)
     sw          $fp, ESCRIBIR_FP(sp)
     sw          ra, ESCRIBIR_RA(sp)
@@ -268,16 +300,16 @@ escribir:
     sw          a1, ESCRIBIR_A1($fp)
     la          t0, buffer_escribir
     sb          a0, 0(t0)
-    mv          a0, a1
-    mv          a1, t0
+    move        a0, a1
+    move        a1, t0
     li          a2, 1
     li          v0, SYS_write
     syscall
     bnez        a3, error_escritura
-    move        v0, 0
+    li          v0, 0
     j		    retornar_escribir				# jump to retornar_escribir
 error_escritura:
-    move        v0, 1
+    li          v0, 1
 retornar_escribir:
     move        sp, $fp
     lw          gp, ESCRIBIR_GP(sp)
@@ -285,7 +317,7 @@ retornar_escribir:
     lw          ra, ESCRIBIR_RA(sp)
     addu        sp, sp, ESCRIBIR_FRAME_SIZE
     jr          ra
-    .end        escribir
+    .end        escribir_byte
 
 
 
@@ -301,15 +333,17 @@ mascaraprevio:     .byte  0x00, 0x03, 0x0f, 0x00
 deltaprevio:       .byte  0, 4, 2, 0
 deltaactual:       .byte  2, 4, 6, 0
 faltantes:         .word  0, 2, 1
-
+.align 2
+CHAR_IGUAL:        .asciiz "="
 .globl errmsg
-    errmsg: .word msg_error_lectura_decodif, msg_error_escritura_decodif, msg_error_lectura_codif, msg_error_escritura_codif
-    .align 2
-    msg_error_ninguno: .asciiz "No hubo errores."
-    msg_error_lectura_decodif: .asciiz "Hubo un error en la lectura del archivo a decodificar."
-    msg_error_escritura_decodif: .asciiz "Hubo un error en la escritura del archivo para la decodificacion."
-    msg_error_lectura_codif: .asciiz "Hubo un error en la lectura del archivo para codificar."
-    msg_error_escritura_codif: .asciiz "Hubo un error en la escritura del archivo cuando codificamos"
+.align 2
+errmsg: .word msg_error_lectura_decodif, msg_error_escritura_decodif, msg_error_lectura_codif, msg_error_escritura_codif
+.align 2
+msg_error_ninguno: .asciiz "No hubo errores."
+msg_error_lectura_decodif: .asciiz "Hubo un error en la lectura del archivo a decodificar."
+msg_error_escritura_decodif: .asciiz "Hubo un error en la escritura del archivo para la decodificacion."
+msg_error_lectura_codif: .asciiz "Hubo un error en la lectura del archivo para codificar."
+msg_error_escritura_codif: .asciiz "Hubo un error en la escritura del archivo cuando codificamos"
 
 .align 2
 tabla:             .asciiz   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
