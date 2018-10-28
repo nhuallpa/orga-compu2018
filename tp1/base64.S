@@ -40,6 +40,7 @@ base64_encode:
     sw          zero, ENCODE_ACTUAL($fp)
     sw          zero, ENCODE_PREVIO($fp)
     sw          zero, ENCODE_CASO($fp)
+    sw          zero, ENCODE_CODRETORNO($fp)
     sw          zero, ENCODE_BYTE_LEIDO($fp)
     sw          a0, ENCODE_FDIN($fp)
     sw          a1, ENCODE_FDOUT($fp) 
@@ -228,47 +229,52 @@ escrib_faltantes:
     sw          a0, FALTANTES_PREVIO($fp)   # a0: byteleido_previo
     sw          a1, FALTANTES_CASO($fp)     # a1: caso
     sw          a2, FALTANTES_FDOUT($fp)    # a2: file descriptor output
+    sw          zero, FALTANTES_K($fp)
     la          t1, faltantes
-    addu        t1, t1, a1
-    lw		    t1, 0(t1)		            # t1 : faltann = faltantes[caso] 
+    lw          t2, FALTANTES_CASO($fp)
+    sll         t2, t2, 2
+    addu        t1, t1, t2
+    lw		    t1, 0(t1)		              # t1 : faltann = faltantes[caso] 
     sw		    t1, FALTANTES_FALTAN($fp)
     
     lw		    t1, FALTANTES_FALTAN($fp)
     li          t2, 1
-    bne         t1, t2, faltan2             # Verifico si falta 1 sino salto a caso 2
-    andi        t3, a0, 0x0f                # caso faltan 1
-    sll         t3, t3, 2                   # t3: indice = (byteleido_previo & 0x0f) << 2
+    bne         t1, t2, faltan2               # Verifico si falta 1 sino salto a caso 2
+    andi        t3, a0, 0x0f                  # CASO faltan = 1
+    sll         t3, t3, 2                     # t3: indice = (byteleido_previo & 0x0f) << 2
     la	        t4, tabla		         
-    addu        t4, t4, t3              # *tabla + indice  apunto al byte que esta en la posicion indice
-    lb          a0, 0(t4)               # a0 := tabla[indice] 
+    addu        t4, t4, t3                    # *tabla + indice  apunto al byte que esta en la posicion indice
+    
+    lb          a0, 0(t4)                     # a0 := tabla[indice] 
     lw          a1, FALTANTES_FDOUT($fp)
-    jal		    escribir_byte				# jump to target and save position to $ra
+    jal		    escribir_byte				  # jump to target and save position to $ra
     bnez        v0, error_escritura_faltantes
-
+    j           escribir_simbolo_cierre       # 
 faltan2:
     li          t2, 2
     lw          t1, FALTANTES_FALTAN($fp)
     bne         t1, t2, retornar_faltantes
-    andi        t3, a0, 0x03
-    sll         t3, t3, 4               # t3: indice = (byteleido_previo & 0x0f) << 2
+    andi        t3, a0, 0x03                  # CASO faltan = 2
+    sll         t3, t3, 4                     # t3: indice = (byteleido_previo & 0x0f) << 2
     la	        t4, tabla		         
-    addu        t4, t4, t3              # *tabla + indice  apunto al byte que esta en la posicion indice
-    lb          a0, 0(t4)               # a0 := tabla[indice] 
+    addu        t4, t4, t3                    # *tabla + indice  apunto al byte que esta en la posicion indice
+    lb          a0, 0(t4)                     # a0 := tabla[indice] 
     lw          a1, FALTANTES_FDOUT($fp)
-    jal		    escribir_byte				# jump to target and save position to $ra
+    jal		    escribir_byte				  # jump to target and save position to $ra
     bnez        v0, error_escritura_faltantes
-for_k:
+escribir_simbolo_cierre:
     lw          t0, FALTANTES_K($fp)
     lw          t1, FALTANTES_FALTAN($fp)
     bge		    t0, t1, retornar_faltantes;
-    la          a0, CHAR_IGUAL
+    la          t0, CHAR_IGUAL
+    lb          a0, 0(t0)
     lw          a1, FALTANTES_FDOUT($fp)
-    jal		    escribir_byte				# jump to target and save position to $ra
+    jal		    escribir_byte				  # jump to target and save position to $ra
     bnez        v0, error_escritura_faltantes
     lw          t0, FALTANTES_K($fp)
     addiu       t0, t0, 1
     sw          t0, FALTANTES_K($fp)
-    j		    for_k				        # jump to for_k
+    j		    escribir_simbolo_cierre       # Escribo otro simbolo
     
 error_escritura_faltantes:
     li          v0, 4
@@ -281,7 +287,6 @@ retornar_faltantes:
     addu        sp, sp, FALTANTES_FRAME_SIZE
     jr		    ra		      
     .end        escrib_faltantes
-
 
 #STACKFRAME: ABA(16) + SRA(16)
 
@@ -337,7 +342,7 @@ mascaraactual:     .byte  0xfc, 0xf0, 0xc0, 0x3f
 mascaraprevio:     .byte  0x00, 0x03, 0x0f, 0x00
 deltaprevio:       .byte  0, 4, 2, 0
 deltaactual:       .byte  2, 4, 6, 0
-faltantes:         .byte  0, 2, 1
+faltantes:         .word  0, 2, 1
 .align 2
 CHAR_IGUAL:        .asciiz "="
 .globl errmsg
