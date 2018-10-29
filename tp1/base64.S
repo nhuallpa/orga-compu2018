@@ -6,6 +6,11 @@
 #define ERROR_ESCRITURA_DECODIF 2
 #define ERROR_LECTURA_CODIF     3
 #define ERROR_ESCRITURA_CODIF   4
+#define ERROR_CARACTER_DECODIF  5
+#define ERROR_ARGUMENTO_FINALES 6
+#define ERROR_FALTANTES_A       7
+#define ERROR_FALTANTES_B       8
+#define ERROR_FALTANTES_C       9
 
 # STACKFRAME: ABA(16) + LA(24) + SRA(16)
 
@@ -350,32 +355,44 @@ faltantes:         .word  0, 2, 1
 CHAR_IGUAL:        .asciiz "="
 .globl errmsg
 .align 2
-errmsg: .word msg_error_ninguno, msg_error_lectura_decodif, msg_error_escritura_decodif, msg_error_lectura_codif, msg_error_escritura_codif
+errmsg: .word msg_error_ninguno, \
+	msg_error_lectura_decodif, \
+	msg_error_escritura_decodif, \
+	msg_error_lectura_codif, \
+	msg_error_escritura_codif, \
+	msg_error_caracter_decodif, \
+	msg_error_argumento_finales, \
+	msg_error_faltantes_a, \
+	msg_error_faltantes_b, \
+	msg_error_faltantes_c
 .align 2
 msg_error_ninguno: .asciiz "No hubo errores."
 msg_error_lectura_decodif: .asciiz "Hubo un error en la lectura del archivo a decodificar."
 msg_error_escritura_decodif: .asciiz "Hubo un error en la escritura del archivo para la decodificacion."
 msg_error_lectura_codif: .asciiz "Hubo un error en la lectura del archivo para codificar."
-msg_error_escritura_codif: .asciiz "Hubo un error en la escritura del archivo cuando codificamos"
+msg_error_escritura_codif: .asciiz "Hubo un error en la escritura del archivo cuando codificamos."
+msg_error_caracter_decodif: .asciiz "Caracter ilegal en la entrada del decodificador."
+msg_error_argumento_finales: .asciiz "Argumento invalido pasado a deco_finales."
+msg_error_faltantes_a: .asciiz "Falta 1 caracter de relleno."
+msg_error_faltantes_b: .asciiz "Faltan 2 caracteres de relleno."
+msg_error_faltantes_c: .asciiz "Faltan 2 caracteres de relleno y 1 de informacion."
 
 .align 2
 tabla:             .asciiz   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 
-
-
 #define STDERR			2
 
-#define DECODE_FDOUT		52
-#define DECODE_FDIN		48
-#define DECODE_STACK_SIZE	48
-#define DECODE_VAR_RA		40
-#define DECODE_VAR_FP		36
-#define DECODE_VAR_GP		32
-#define DECODE_BUFFER		24
+#define DECODE_FDOUT		60
+#define DECODE_FDIN		56
+#define DECODE_STACK_SIZE	56
+#define DECODE_VAR_RA		48
+#define DECODE_VAR_FP		44
+#define DECODE_VAR_GP		40
+#define DECODE_BUFFER		28
+#define DECODE_FALTANTES	24
 #define DECODE_FINALES		20
 #define DECODE_LEIDOS		16
-
 
 	.text
 	.abicalls
@@ -383,10 +400,9 @@ tabla:             .asciiz   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 	.globl	base64_decode
 	.ent	base64_decode
 base64_decode:
-	# sra: 12, fra: 0, lta: 13, aba: 8
-	.frame		$fp, DECODE_STACK_SIZE, ra
+	.frame	$fp, DECODE_STACK_SIZE, ra
 	.set		noreorder
-	.cpload		t9
+	.cpload	t9
 	.set		reorder
 	subu		sp, sp, DECODE_STACK_SIZE
 	.cprestore	DECODE_VAR_GP
@@ -395,89 +411,94 @@ base64_decode:
 	move		$fp, sp
 	sw		a0, DECODE_FDIN($fp)
 	sw		a1, DECODE_FDOUT($fp)
+	sw		zero, DECODE_FALTANTES($fp)
 
 	la		a1, DECODE_BUFFER($fp)
 	li		a2, 5
-	li		v0, SYS_read
-	syscall
-	bnez		a3, error_lectura_decode
+	jal		deco_leer
+	bnez		a3, base64_decode_error_lectura
 
-	move		s7, v0
-	bne		s7, 5, leer_finales
+	sw		v0, DECODE_LEIDOS($fp)
+	bne		v0, 5, leer_finales
 
 loop:
 	# resolver (b, 4);
 	la              a0, DECODE_BUFFER($fp)	
 	li		a1, 4
 	jal		deco_resolver	
+	bnez		v0, base64_decode_salir
 
-	lb		s0, DECODE_BUFFER($fp)
-	lb		s1, DECODE_BUFFER+1($fp)
-	lb		s2, DECODE_BUFFER+2($fp)
-	lb		s3, DECODE_BUFFER+3($fp)
-	lb		s4, DECODE_BUFFER+4($fp)
-
+	lb		t0, DECODE_BUFFER($fp)
+	lb		t1, DECODE_BUFFER+1($fp)
 	# escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
-	andi		t5, s0, 0x3f
+	andi		t5, t0, 0x3f
 	sll		t5, t5, 2
-	andi		t6, s1, 0x30
+	andi		t6, t1, 0x30
 	srl		t6, t6, 4
 	or		t7, t5, t6
 	move		a0, t7
 	lw		a1, DECODE_FDOUT($fp)
 	jal		deco_escribir_char
+	bnez		v0, base64_decode_salir
 
+	lb		t1, DECODE_BUFFER+1($fp)
+	lb		t2, DECODE_BUFFER+2($fp)
 	# escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
-        andi            t5, s1, 0x0f
-        sll             t5, t5, 4
-        andi            t6, s2, 0x3c
-        srl             t6, t6, 2
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FDOUT($fp)
-        jal             deco_escribir_char
+	andi	t5, t1, 0x0f
+	sll		t5, t5, 4
+	andi		t6, t2, 0x3c
+	srl		t6, t6, 2
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FDOUT($fp)
+	jal		deco_escribir_char
+	bnez		v0, base64_decode_salir
 
+	lb		t2, DECODE_BUFFER+2($fp)
+	lb		t3, DECODE_BUFFER+3($fp)
 	# escribir (((b[2] & 0x03) << 6) | (b[3] & 0x3f), salida);
-	andi            t5, s2, 0x03
-        sll             t5, t5, 6
-        andi            t6, s3, 0x3f
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FDOUT($fp)
-        jal             deco_escribir_char
+	andi		t5, t2, 0x03
+	sll		t5, t5, 6
+	andi		t6, t3, 0x3f
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FDOUT($fp)
+	jal		deco_escribir_char
+	bnez		v0, base64_decode_salir
 
 	# b[0] = b[4];
-	sw		s4, DECODE_BUFFER($fp)
+	lb              t0, DECODE_BUFFER+4($fp)
+	sb		t0, DECODE_BUFFER($fp)
 
 	# while ((leidos = fread (b+1, 1, 4, entrada)) == 4);
 	lw		a0, DECODE_FDIN($fp)
-	la              a1, DECODE_BUFFER+1($fp)
-	li              a2, 4
-	li              v0, SYS_read
-	syscall
-	bnez            a3, error_lectura_decode
-	move		s7, v0
-	beq             s7, 4, loop
+	la		a1, DECODE_BUFFER+1($fp)
+	li		a2, 4
+	jal		deco_leer
+	bnez		a3, base64_decode_error_lectura
+	sw		v0, DECODE_LEIDOS($fp)
+	beq		v0, 4, loop
 
 	# leidos += 1;
-	addi		s7, s7, 1
+	addi		v0, v0, 1
+	sw		v0, DECODE_LEIDOS($fp)
 
 leer_finales:
-	beqz		s7, salir
+	beqz		v0, base64_decode_salir_ok
 
 	# si (leidos == 4) 
-	bne		s7, 4, no_es_4
+	bne		v0, 4, no_es_4
 
 	# finales = b[3] == '=' ? (b[2] == '=' ? 1 : 2) : 3;
 
-        lb              t2, DECODE_BUFFER+2($fp)
-        lb              t3, DECODE_BUFFER+3($fp)
+	lb		t2, DECODE_BUFFER+2($fp)
+	lb		t3, DECODE_BUFFER+3($fp)
 	bne		t3, '=', else_e1
 	bne		t2, '=', else_i1
-	li              t4, 1
+	li		t4, 1
 	b		fin_1
 else_i1:
-	li              t4, 2
+	li		t4, 2
 	b		fin_1
 else_e1:
 	li		t4, 3
@@ -486,56 +507,54 @@ fin_1:
 	b		finales
 
 no_es_4:
-	bne		s7, 3, no_es_3
-	# Muestra error
-	la		a0, msg_error_falta_1_relleno
-	li		a1, STDERR
-	jal		deco_escribir
+	lw		t0, DECODE_LEIDOS($fp)
+	bne		t0, 3, no_es_3
 	# finales = b[2] == '=' ? 1 : 2;
-	lb              t2, DECODE_BUFFER+2($fp)
+	lb		t2, DECODE_BUFFER+2($fp)
 	bne		t2, '=', else_2
-	li              t4, 1
+	li		t4, 1
 	b fin_2
 else_2:
-	li              t4, 2
+	li		t4, 2
 fin_2:
-	sw              t4, DECODE_FINALES($fp)
+	sw		t4, DECODE_FINALES($fp)
+	li		t0, ERROR_FALTANTES_A
+	sw		t0, DECODE_FALTANTES($fp)
 	b		finales
 
 no_es_3:
-	bne		s7, 2, no_es_2
-        # Muestra error
-        la              a0, msg_error_faltan_2_relleno
-        li              a1, STDERR
-        jal             deco_escribir
-	li              t4, 1
-	sw              t4, DECODE_FINALES($fp)
-	b               finales
+	lw		t0, DECODE_LEIDOS($fp)
+	bne		t0, 2, no_es_2
+	li		t4, 1
+	sw		t4, DECODE_FINALES($fp)
+	li		t0, ERROR_FALTANTES_B
+	sw		t0, DECODE_FALTANTES($fp)
+	b		finales
 
 no_es_2:
-        # Muestra error
-        la              a0, msg_error_faltan_2_relleno
-        li              a1, STDERR
-        jal             deco_escribir
-        la              a0, msg_error_falta_1_info
-        li              a1, STDERR
-        jal             deco_escribir
-	b 		salir
+	li		v0, ERROR_FALTANTES_C
+	b		base64_decode_salir
 
 finales:
 	la		a0, DECODE_BUFFER($fp)
-	#move		a1, t4		
 	lw		a1, DECODE_FINALES($fp)
 	lw		a2, DECODE_FDOUT($fp)
 	jal		deco_finales
-	b		salir	
+	bnez		v0, base64_decode_salir
+	# veo si faltaban caracteres
+	lw		t0, DECODE_FALTANTES($fp)
+	beqz		t0, base64_decode_salir_ok
+	move		v0, t0
+	b		base64_decode_salir
 
-error_lectura_decode:
-        la              a0, msg_error_lectura
-        li              a1, STDERR
-        jal             deco_escribir
+base64_decode_error_lectura:
+	li		v0, ERROR_LECTURA_DECODIF
+	b		base64_decode_salir
 
-salir:
+base64_decode_salir_ok:
+	li		v0, 0
+
+base64_decode_salir:
 	move		sp, $fp
 	lw		gp, DECODE_VAR_GP(sp)
 	lw		$fp, DECODE_VAR_FP(sp)
@@ -543,6 +562,67 @@ salir:
 	addu		sp, sp, DECODE_STACK_SIZE
 	jr		ra
 	.end		base64_decode
+
+
+#define DECODE_LEER_A2              52
+#define DECODE_LEER_A1              48
+#define DECODE_LEER_A0              44
+#define DECODE_LEER_STACK_SIZE      40
+#define DECODE_LEER_RA              32
+#define DECODE_LEER_FP              28
+#define DECODE_LEER_GP              24
+#define DECODE_LEER_LEIDOS          16
+
+	.globl	deco_leer
+	.ent		deco_leer
+deco_leer:
+	.frame	$fp, DECODE_LEER_STACK_SIZE, ra
+	.set noreorder
+	.cpload t9
+	.set reorder
+	subu		sp, sp, DECODE_LEER_STACK_SIZE
+	.cprestore	DECODE_LEER_GP
+	sw		$fp, DECODE_LEER_FP(sp)
+	sw		ra, DECODE_LEER_RA(sp)
+	move		$fp, sp
+	sw		a0, DECODE_LEER_A0($fp)
+	sw		a1, DECODE_LEER_A1($fp)
+	sw		a2, DECODE_LEER_A2($fp)
+
+	li		t1, 0
+	move		t2, a2	
+	sw		t1, DECODE_LEER_LEIDOS($fp)
+loop_deco_leer:
+	lw		a0, DECODE_LEER_A0($fp)
+	lw		a1, DECODE_LEER_A1($fp)
+	addu		a1, a1, t1
+	move		a2, t2
+	li		v0, SYS_read
+	syscall
+
+	bnez		a3, salir_deco_leer_error	# si fallo SYS_read
+
+	lw		t1, DECODE_LEER_LEIDOS($fp)
+	beqz		v0, salir_deco_leer		# si termino EOF
+	addu		t1, t1, v0			# leidos hasta ahora
+	sw		t1, DECODE_LEER_LEIDOS($fp)
+	lw		t2, DECODE_LEER_A2($fp)
+	beq		t1, t2, salir_deco_leer		# si concluyo lectura
+	subu		t2, t2, t1			# restan leer
+	b		loop_deco_leer
+
+salir_deco_leer:
+	move		v0, t1
+
+salir_deco_leer_error:
+	move		sp, $fp
+	lw		gp, DECODE_LEER_GP(sp)
+	lw		$fp, DECODE_LEER_FP(sp)
+	lw		ra, DECODE_LEER_RA(sp)
+	addu		sp, sp, DECODE_LEER_STACK_SIZE
+	jr		ra
+	.end		deco_leer
+
 
 
 #define DECODE_ESCRIBIR_A1		36
@@ -553,10 +633,10 @@ salir:
 #define DECODE_ESCRIBIR_GP		16
 
 
-	.globl		deco_escribir_char
-        .ent            deco_escribir_char
+	.globl	deco_escribir_char
+        .ent	deco_escribir_char
 deco_escribir_char:
-	.frame		$fp, DECODE_ESCRIBIR_STACK_SIZE, ra
+	.frame	$fp, DECODE_ESCRIBIR_STACK_SIZE, ra
 	.set noreorder
 	.cpload t9
 	.set reorder
@@ -569,105 +649,104 @@ deco_escribir_char:
 	sw		a1, DECODE_ESCRIBIR_A1($fp)
 
 	move		t0, a0
-	sw              t0, 0($fp)
+	sw		t0, 0($fp)
 
 	lw		a0, DECODE_ESCRIBIR_A1($fp)
 	la		a1, 0($fp)
 	li		a2, 1
 	li		v0, SYS_write
 	syscall
-	beqz		a3, salir_deco_escribir_char
+	beqz		a3, deco_escribir_char_salir_ok
 	
-        la              a0, msg_error_escritura
-        li              a1, STDERR
-	jal		deco_escribir
+deco_escribir_char_error:
+	li		v0, ERROR_ESCRITURA_DECODIF
+	b		deco_escribir_char_salir
 
-	li		a0, 1
-	li		v0, SYS_exit
-	syscall
-	
-salir_deco_escribir_char:
-        move            sp, $fp
-        lw              gp, DECODE_ESCRIBIR_GP(sp)
-        lw              $fp, DECODE_ESCRIBIR_FP(sp)
-        lw              ra, DECODE_ESCRIBIR_RA(sp)
-        addu            sp, sp, DECODE_ESCRIBIR_STACK_SIZE
-        jr              ra
-        .end            deco_escribir_char
+deco_escribir_char_salir_ok:
+	li		v0, 0
 
-        .globl          deco_escribir
-        .ent            deco_escribir
+deco_escribir_char_salir:
+	move		sp, $fp
+	lw		gp, DECODE_ESCRIBIR_GP(sp)
+	lw		$fp, DECODE_ESCRIBIR_FP(sp)
+	lw		ra, DECODE_ESCRIBIR_RA(sp)
+	addu		sp, sp, DECODE_ESCRIBIR_STACK_SIZE
+	jr		ra
+	.end		deco_escribir_char
+
+	.globl	deco_escribir
+	.ent		deco_escribir
 deco_escribir:
-        .frame          $fp, DECODE_ESCRIBIR_STACK_SIZE, ra
-        .set noreorder
-        .cpload t9
-        .set reorder
-        subu            sp, sp, DECODE_ESCRIBIR_STACK_SIZE
-        .cprestore      DECODE_ESCRIBIR_GP
-        sw              $fp, DECODE_ESCRIBIR_FP(sp)
-        sw              ra, DECODE_ESCRIBIR_RA(sp)
-        move            $fp, sp
-        sw              a0, DECODE_ESCRIBIR_A0($fp)
-        sw              a1, DECODE_ESCRIBIR_A1($fp)
+	.frame	$fp, DECODE_ESCRIBIR_STACK_SIZE, ra
+	.set noreorder
+	.cpload t9
+	.set reorder
+	subu		sp, sp, DECODE_ESCRIBIR_STACK_SIZE
+	.cprestore	DECODE_ESCRIBIR_GP
+	sw		$fp, DECODE_ESCRIBIR_FP(sp)
+	sw		ra, DECODE_ESCRIBIR_RA(sp)
+	move		$fp, sp
+	sw		a0, DECODE_ESCRIBIR_A0($fp)
+	sw		a1, DECODE_ESCRIBIR_A1($fp)
 
 	li		t0, 0
 	move		t1, a0
+
 deco_escribir_contar:
 	lb		t2, 0(t1)
 	beqz		t2, deco_escribir_fin_contar
 	addu		t0, t0, 1
 	addu		t1, t1, 1
 	b		deco_escribir_contar
+
 deco_escribir_fin_contar:
+	lw		a0, DECODE_ESCRIBIR_A1($fp)
+	lw		a1, DECODE_ESCRIBIR_A0($fp)
+	move		a2, t0
+	li		v0, SYS_write
+	syscall
+	beqz		a3, deco_escribir_salir_ok
 
-        lw              a0, DECODE_ESCRIBIR_A1($fp)
-        lw              a1, DECODE_ESCRIBIR_A0($fp)
-        move            a2, t0
-        li              v0, SYS_write
-        syscall
-        beqz            a3, salir_deco_escribir
+deco_escribir_error:
+	li		v0, ERROR_ESCRITURA_DECODIF
+	b		deco_escribir_salir
 
-        la              a0, msg_error_escritura
-        li              a1, STDERR
-        jal             deco_escribir
+deco_escribir_salir_ok:
+	li		v0, 0
 
-        li              a0, 1
-        li              v0, SYS_exit
-        syscall
+deco_escribir_salir:
+	move		sp, $fp
+	lw		gp, DECODE_ESCRIBIR_GP(sp)
+	lw		$fp, DECODE_ESCRIBIR_FP(sp)
+	lw		ra, DECODE_ESCRIBIR_RA(sp)
+	addu		sp, sp, DECODE_ESCRIBIR_STACK_SIZE
+	jr		ra
+	.end		deco_escribir
 
-salir_deco_escribir:
-        move            sp, $fp
-        lw              gp, DECODE_ESCRIBIR_GP(sp)
-        lw              $fp, DECODE_ESCRIBIR_FP(sp)
-        lw              ra, DECODE_ESCRIBIR_RA(sp)
-        addu            sp, sp, DECODE_ESCRIBIR_STACK_SIZE
-        jr              ra
-        .end            deco_escribir
-
-#define DECODE_RESOLVER_A1              44
-#define DECODE_RESOLVER_A0              40
-#define DECODE_RESOLVER_STACK_SIZE      40
-#define DECODE_RESOLVER_RA              36
-#define DECODE_RESOLVER_FP              32
-#define DECODE_RESOLVER_GP              28
+#define DECODE_RESOLVER_A1              52
+#define DECODE_RESOLVER_A0              48
+#define DECODE_RESOLVER_STACK_SIZE      48
+#define DECODE_RESOLVER_RA              40
+#define DECODE_RESOLVER_FP              36
+#define DECODE_RESOLVER_GP              32
 #define DECODE_RESOLVER_I	        24
 #define DECODE_RESOLVER_TABLA           20
 #define DECODE_RESOLVER_C               16
 
-	.globl		deco_resolver
-        .ent            deco_resolver
+	.globl	deco_resolver
+	.ent		deco_resolver
 deco_resolver:
-        .frame          $fp, DECODE_RESOLVER_STACK_SIZE, ra
-        .set noreorder
-        .cpload t9
-        .set reorder
-        subu            sp, sp, DECODE_RESOLVER_STACK_SIZE
-        .cprestore      DECODE_RESOLVER_GP
-        sw              $fp, DECODE_RESOLVER_FP(sp)
-        sw              ra, DECODE_RESOLVER_RA(sp)
-        move            $fp, sp
-        sw              a0, DECODE_RESOLVER_A0($fp)
-        sw              a1, DECODE_RESOLVER_A1($fp)
+	.frame	$fp, DECODE_RESOLVER_STACK_SIZE, ra
+	.set noreorder
+	.cpload t9
+	.set reorder
+	subu		sp, sp, DECODE_RESOLVER_STACK_SIZE
+	.cprestore	DECODE_RESOLVER_GP
+	sw		$fp, DECODE_RESOLVER_FP(sp)
+	sw		ra, DECODE_RESOLVER_RA(sp)
+	move		$fp, sp
+	sw		a0, DECODE_RESOLVER_A0($fp)
+	sw		a1, DECODE_RESOLVER_A1($fp)
 	la		t0, deco_tabla
 	sw		t0, DECODE_RESOLVER_TABLA($fp)
 
@@ -681,7 +760,7 @@ deco_resolver:
 loop_resolver:
 	
 	addu		t0, t0, 1
-sw              t0, DECODE_RESOLVER_I($fp)
+	sw		t0, DECODE_RESOLVER_I($fp)
 
 	addu		t3, t2, t0 # t3 = b + i
 	lb		t4, 0(t3)  # t4 = b[i]
@@ -691,40 +770,27 @@ sw              t0, DECODE_RESOLVER_I($fp)
 	lb		t7, 0(t6)  # tabla[c]
 	sb		t7, 0(t3)
 
-	beq		t7, -1, error_resolver
+	beq		t7, -1, deco_resolver_error
 
 while_resolver:
 	blt		t0, t1, loop_resolver
-	b		salir_deco_resolver
+	b		deco_resolver_salir_ok
 
-error_resolver:
-        la              a0, msg_error_caracter_1
-        li              a1, STDERR
-        jal             deco_escribir
+deco_resolver_error:
+	li		v0, ERROR_CARACTER_DECODIF
+	b		deco_resolver_salir
 
-	# TODO deco_escribir_hexa
-        lb              a0, DECODE_RESOLVER_C($fp)
-        li              a1, STDERR
-        jal             deco_escribir_char
+deco_resolver_salir_ok:
+	li		v0, 0
 
-        la              a0, msg_error_caracter_2
-        li              a1, STDERR
-        jal             deco_escribir
-	
-        li              a0, 1
-        li              v0, SYS_exit
-        syscall
-
-
-salir_deco_resolver:
-
-        move            sp, $fp
-        lw              gp, DECODE_RESOLVER_GP(sp)
-        lw              $fp, DECODE_RESOLVER_FP(sp)
-        lw              ra, DECODE_RESOLVER_RA(sp)
-        addu            sp, sp, DECODE_RESOLVER_STACK_SIZE
-        jr              ra
-        .end            deco_resolver
+deco_resolver_salir:
+	move		sp, $fp
+	lw		gp, DECODE_RESOLVER_GP(sp)
+	lw		$fp, DECODE_RESOLVER_FP(sp)
+	lw		ra, DECODE_RESOLVER_RA(sp)
+	addu		sp, sp, DECODE_RESOLVER_STACK_SIZE
+	jr		ra
+	.end		deco_resolver
 
 #define DECODE_FINALES_A2              40
 #define DECODE_FINALES_A1              36
@@ -734,164 +800,161 @@ salir_deco_resolver:
 #define DECODE_FINALES_FP              20
 #define DECODE_FINALES_GP              16
 
-	.globl		deco_finales
+	.globl	deco_finales
 	.ent		deco_finales
 deco_finales:
-        .frame          $fp, DECODE_FINALES_STACK_SIZE, ra
-        .set noreorder
-        .cpload t9
-        .set reorder
-        subu            sp, sp, DECODE_FINALES_STACK_SIZE
-        .cprestore      DECODE_FINALES_GP
-        sw              $fp, DECODE_FINALES_FP(sp)
-        sw              ra, DECODE_FINALES_RA(sp)
-        move            $fp, sp
-        sw              a0, DECODE_FINALES_A0($fp)
-        sw              a1, DECODE_FINALES_A1($fp)
-        sw              a2, DECODE_FINALES_A2($fp)
+	.frame	$fp, DECODE_FINALES_STACK_SIZE, ra
+	.set noreorder
+	.cpload t9
+	.set reorder
+	subu		sp, sp, DECODE_FINALES_STACK_SIZE
+	.cprestore	DECODE_FINALES_GP
+	sw		$fp, DECODE_FINALES_FP(sp)
+	sw		ra, DECODE_FINALES_RA(sp)
+	move		$fp, sp
+	sw		a0, DECODE_FINALES_A0($fp)
+	sw		a1, DECODE_FINALES_A1($fp)
+	sw		a2, DECODE_FINALES_A2($fp)
 
 	bne		a1, 1, finales_no_es_1
 
-        # resolver (b, 2);
-        lw              a0, DECODE_FINALES_A0($fp)
-        #la              a0, DECODE_BUFFER($fp)
-        li              a1, 2
-        jal             deco_resolver
-
-        lw              t8, DECODE_FINALES_A0($fp)
-        lb              t0, 0(t8)
-        lb              t1, 1(t8)
-        #lb              t0, DECODE_BUFFER($fp)
-        #lb              t1, DECODE_BUFFER+1($fp)
-
-        # escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
-        andi            t5, t0, 0x3f
-        sll             t5, t5, 2
-        andi            t6, t1, 0x30
-        srl             t6, t6, 4
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
-
-	b		salir_deco_finales
-
-finales_no_es_1:
-        lw              a1, DECODE_FINALES_A1($fp)
-	bne		a1, 2, finales_no_es_2
-
-        # resolver (b, 3);
-        lw              a0, DECODE_FINALES_A0($fp)
-        li              a1, 3
-        jal             deco_resolver
-
-        lw              t8, DECODE_FINALES_A0($fp)
-        lb              t0, 0(t8)
-        lb              t1, 1(t8)
-        #lb              t0, DECODE_BUFFER($fp)
-        #lb              t1, DECODE_BUFFER+1($fp)
-
-        # escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
-        andi            t5, t0, 0x3f
-        sll             t5, t5, 2
-        andi            t6, t1, 0x30
-        srl             t6, t6, 4
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
-
-        lw              t8, DECODE_FINALES_A0($fp)
-        lb              t1, 1(t8)
-        lb              t2, 2(t8)
-        #lb              t1, DECODE_BUFFER+1($fp)
-        #lb              t2, DECODE_BUFFER+2($fp)
-
-        # escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
-        andi            t5, t1, 0x0f
-        sll             t5, t5, 4
-        andi            t6, t2, 0x3c
-        srl             t6, t6, 2
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
-
-	b		salir_deco_finales
-
-finales_no_es_2:
-        lw              a1, DECODE_FINALES_A1($fp)
-	bne		a1, 3, salir_deco_finales
-
-        # resolver (b, 4);
-        lw              a0, DECODE_FINALES_A0($fp)
-        li              a1, 4
-        jal             deco_resolver
+	# resolver (b, 2);
+	lw		a0, DECODE_FINALES_A0($fp)
+	li		a1, 2
+	jal		deco_resolver
+	bnez		v0, deco_finales_salir
 
 	lw		t8, DECODE_FINALES_A0($fp)
-        lb              t0, 0(t8)
-        lb              t1, 1(t8)
+	lb		t0, 0(t8)
+	lb		t1, 1(t8)
+	# escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+	andi		t5, t0, 0x3f
+	sll		t5, t5, 2
+	andi		t6, t1, 0x30
+	srl		t6, t6, 4
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
 
-        # escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
-        andi            t5, t0, 0x3f
-        sll             t5, t5, 2
-        andi            t6, t1, 0x30
-        srl             t6, t6, 4
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
+	b		deco_finales_salir_ok
 
-        lw              t8, DECODE_FINALES_A0($fp)
-        lb              t1, 1(t8)
-        lb              t2, 2(t8)
-        #lb              t1, DECODE_BUFFER+1($fp)
-        #lb              t2, DECODE_BUFFER+2($fp)
+finales_no_es_1:
+	lw		a1, DECODE_FINALES_A1($fp)
+	bne		a1, 2, finales_no_es_2
 
-        # escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
-        andi            t5, t1, 0x0f
-        sll             t5, t5, 4
-        andi            t6, t2, 0x3c
-        srl             t6, t6, 2
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
+	# resolver (b, 3);
+	lw		a0, DECODE_FINALES_A0($fp)
+	li		a1, 3
+	jal		deco_resolver
+	bnez		v0, deco_finales_salir
 
-        lw              t8, DECODE_FINALES_A0($fp)
-        lb              t2, 2(t8)
-        lb              t3, 3(t8)
-        #lb              t2, DECODE_BUFFER+2($fp)
-        #lb              t3, DECODE_BUFFER+3($fp)
+	lw		t8, DECODE_FINALES_A0($fp)
+	lb		t0, 0(t8)
+	lb		t1, 1(t8)
 
-        # escribir (((b[2] & 0x03) << 6) | (b[3] & 0x3f), salida);
-        andi            t5, t2, 0x03
-        sll             t5, t5, 6
-        andi            t6, t3, 0x3f
-        or              t7, t5, t6
-        move            a0, t7
-        lw              a1, DECODE_FINALES_A2($fp)
-        jal             deco_escribir_char
+	# escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+	andi		t5, t0, 0x3f
+	sll		t5, t5, 2
+	andi		t6, t1, 0x30
+	srl		t6, t6, 4
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
 
+	lw		t8, DECODE_FINALES_A0($fp)
+	lb		t1, 1(t8)
+	lb		t2, 2(t8)
 
-salir_deco_finales:
-        move            sp, $fp 
-        lw              gp, DECODE_FINALES_GP(sp)
-        lw              $fp, DECODE_FINALES_FP(sp)
-        lw              ra, DECODE_FINALES_RA(sp)
-        addu            sp, sp, DECODE_FINALES_STACK_SIZE
-        jr              ra
-        .end            deco_finales
+	# escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
+	andi		t5, t1, 0x0f
+	sll		t5, t5, 4
+	andi		t6, t2, 0x3c
+	srl		t6, t6, 2
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
+
+	b		deco_finales_salir_ok
+
+finales_no_es_2:
+	lw		a1, DECODE_FINALES_A1($fp)
+	bne		a1, 3, deco_finales_error
+
+	# resolver (b, 4);
+	lw		a0, DECODE_FINALES_A0($fp)
+	li		a1, 4
+	jal		deco_resolver
+	bnez		v0, deco_finales_salir
+
+	lw		t8, DECODE_FINALES_A0($fp)
+	lb		t0, 0(t8)
+	lb		t1, 1(t8)
+
+	# escribir (((b[0] & 0x3f) << 2) | ((b[1] & 0x30) >> 4), salida);
+	andi		t5, t0, 0x3f
+	sll		t5, t5, 2
+	andi		t6, t1, 0x30
+	srl		t6, t6, 4
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
+
+	lw		t8, DECODE_FINALES_A0($fp)
+	lb		t1, 1(t8)
+	lb		t2, 2(t8)
+
+	# escribir (((b[1] & 0x0f) << 4) | ((b[2] & 0x3c) >> 2), salida);
+	andi		t5, t1, 0x0f
+	sll		t5, t5, 4
+	andi		t6, t2, 0x3c
+	srl		t6, t6, 2
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
+
+	lw		t8, DECODE_FINALES_A0($fp)
+	lb		t2, 2(t8)
+	lb		t3, 3(t8)
+
+	# escribir (((b[2] & 0x03) << 6) | (b[3] & 0x3f), salida);
+	andi		t5, t2, 0x03
+	sll		t5, t5, 6
+	andi		t6, t3, 0x3f
+	or		t7, t5, t6
+	move		a0, t7
+	lw		a1, DECODE_FINALES_A2($fp)
+	jal		deco_escribir_char
+	bnez		v0, deco_finales_salir
+
+	b		deco_finales_salir_ok
+
+deco_finales_error:
+	li		v0, ERROR_ARGUMENTO_FINALES
+	b		deco_finales_salir
+
+deco_finales_salir_ok:
+	li		v0, 0
+
+deco_finales_salir:
+	move		sp, $fp 
+	lw		gp, DECODE_FINALES_GP(sp)
+	lw		$fp, DECODE_FINALES_FP(sp)
+	lw		ra, DECODE_FINALES_RA(sp)
+	addu		sp, sp, DECODE_FINALES_STACK_SIZE
+	jr		ra
+	.end		deco_finales
 
 .rdata
-.align 2
-	msg_error_falta_1_relleno: .asciiz "Error: Falta 1 caracter de relleno\n"
-	msg_error_faltan_2_relleno: .asciiz "Error: Faltan 2 caracteres de relleno\n"
-	msg_error_falta_1_info: .asciiz "Error: Falta 1 caracter de informacion\n"
-	msg_error_lectura: .asciiz "Error: Fallo SYS_read\n"
-	msg_error_escritura: .asciiz "Error: Fallo SYS_write\n"
-	msg_error_caracter_1: .asciiz "Error: Caracter '"
-	msg_error_caracter_2: .asciiz "' ilegal en la entrada\n"
 .align 2
 deco_tabla:
 	.byte	-1

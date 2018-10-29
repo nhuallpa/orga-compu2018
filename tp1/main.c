@@ -96,6 +96,8 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
   return parametro;
 }
 
+int deco_leer (int fd, void *buf, size_t count);
+
 int main (int argc, char** argv) {
   int returnCode = 0;
   Parametro p = manejarArgumentosEntrada(argc, argv);
@@ -122,6 +124,7 @@ int main (int argc, char** argv) {
     exit(1);
   }
   if (strcmp(p.accion, ENCODE) == 0) {
+    //codificar(archivoEntrada, archivoSalida);
     int fileDescriptorEntrada = fileno(archivoEntrada);
     int fileDescriptorSalida = fileno(archivoSalida);
 		returnCode = base64_encode(fileDescriptorEntrada, fileDescriptorSalida);
