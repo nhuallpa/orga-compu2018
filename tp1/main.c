@@ -96,8 +96,6 @@ Parametro manejarArgumentosEntrada(int argc, char** argv)
   return parametro;
 }
 
-int deco_leer (int fd, void *buf, size_t count);
-
 int main (int argc, char** argv) {
   int returnCode = 0;
   Parametro p = manejarArgumentosEntrada(argc, argv);
