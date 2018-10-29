@@ -163,12 +163,12 @@ calc_indice:
     sw          a1, CAL_IDX_ACTUAL($fp) # byteleido_actual
     sw          a2, CAL_IDX_CASO($fp)   # caso
     li          t0, 3
-    bne		    a2, t0, caso012	        # if caso != 3 then caso012
+    bne		a2, t0, caso012	        # if caso != 3 then caso012
     la          t1, mascaraactual
-    lb		    t2, 3(t1)		        # leo mascaraactual[3]
+    lb		t2, 3(t1)		        # leo mascaraactual[3]
     move        t3, a1
     and         v0, t3, t2
-    j		    retornar_indice			# jump to retornar_indice
+    j		retornar_indice			# jump to retornar_indice
 caso012:
     la          t1, mascaraactual
     addu        t1, t1, a2
@@ -181,10 +181,13 @@ caso012:
     lb          t4, 0(t1)               # t4 := deltaactual[caso]
     la          t1, deltaprevio
     addu        t1, t1, a2
+     
     lb          t5, 0(t1)               # t5 := deltaprevio[caso]
     and         t6, a0, t3
     sll         t6, t6, t5              # t6 := (byteleido_previo & mascaraprevio[caso]) << deltaprevio[caso]
-    and         t7, a1, t2
+    
+    lbu         t8, CAL_IDX_ACTUAL($fp)
+    and         t7, t8, t2
     srl         t7, t7, t4              # t7 := (byteleido_actual & mascaraactual[caso]) >> deltaactual[caso] 
     or          v0, t6, t7
 retornar_indice:
