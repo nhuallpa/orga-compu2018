@@ -564,9 +564,9 @@ base64_decode_salir:
 	.end		base64_decode
 
 
-#define DECODE_LEER_A2              52
-#define DECODE_LEER_A1              48
-#define DECODE_LEER_A0              44
+#define DECODE_LEER_A2              48
+#define DECODE_LEER_A1              44
+#define DECODE_LEER_A0              40
 #define DECODE_LEER_STACK_SIZE      40
 #define DECODE_LEER_RA              32
 #define DECODE_LEER_FP              28
@@ -674,64 +674,14 @@ deco_escribir_char_salir:
 	jr		ra
 	.end		deco_escribir_char
 
-	.globl	deco_escribir
-	.ent		deco_escribir
-deco_escribir:
-	.frame	$fp, DECODE_ESCRIBIR_STACK_SIZE, ra
-	.set noreorder
-	.cpload t9
-	.set reorder
-	subu		sp, sp, DECODE_ESCRIBIR_STACK_SIZE
-	.cprestore	DECODE_ESCRIBIR_GP
-	sw		$fp, DECODE_ESCRIBIR_FP(sp)
-	sw		ra, DECODE_ESCRIBIR_RA(sp)
-	move		$fp, sp
-	sw		a0, DECODE_ESCRIBIR_A0($fp)
-	sw		a1, DECODE_ESCRIBIR_A1($fp)
-
-	li		t0, 0
-	move		t1, a0
-
-deco_escribir_contar:
-	lb		t2, 0(t1)
-	beqz		t2, deco_escribir_fin_contar
-	addu		t0, t0, 1
-	addu		t1, t1, 1
-	b		deco_escribir_contar
-
-deco_escribir_fin_contar:
-	lw		a0, DECODE_ESCRIBIR_A1($fp)
-	lw		a1, DECODE_ESCRIBIR_A0($fp)
-	move		a2, t0
-	li		v0, SYS_write
-	syscall
-	beqz		a3, deco_escribir_salir_ok
-
-deco_escribir_error:
-	li		v0, ERROR_ESCRITURA_DECODIF
-	b		deco_escribir_salir
-
-deco_escribir_salir_ok:
-	li		v0, 0
-
-deco_escribir_salir:
-	move		sp, $fp
-	lw		gp, DECODE_ESCRIBIR_GP(sp)
-	lw		$fp, DECODE_ESCRIBIR_FP(sp)
-	lw		ra, DECODE_ESCRIBIR_RA(sp)
-	addu		sp, sp, DECODE_ESCRIBIR_STACK_SIZE
-	jr		ra
-	.end		deco_escribir
-
-#define DECODE_RESOLVER_A1              52
-#define DECODE_RESOLVER_A0              48
-#define DECODE_RESOLVER_STACK_SIZE      48
-#define DECODE_RESOLVER_RA              40
-#define DECODE_RESOLVER_FP              36
-#define DECODE_RESOLVER_GP              32
-#define DECODE_RESOLVER_I	        24
-#define DECODE_RESOLVER_TABLA           20
-#define DECODE_RESOLVER_C               16
+#define DECODE_RESOLVER_A1              28
+#define DECODE_RESOLVER_A0              24
+#define DECODE_RESOLVER_STACK_SIZE      24
+#define DECODE_RESOLVER_FP              20
+#define DECODE_RESOLVER_GP              16
+#define DECODE_RESOLVER_I	        8
+#define DECODE_RESOLVER_TABLA           4
+#define DECODE_RESOLVER_C               0
 
 	.globl	deco_resolver
 	.ent		deco_resolver
@@ -743,7 +693,6 @@ deco_resolver:
 	subu		sp, sp, DECODE_RESOLVER_STACK_SIZE
 	.cprestore	DECODE_RESOLVER_GP
 	sw		$fp, DECODE_RESOLVER_FP(sp)
-	sw		ra, DECODE_RESOLVER_RA(sp)
 	move		$fp, sp
 	sw		a0, DECODE_RESOLVER_A0($fp)
 	sw		a1, DECODE_RESOLVER_A1($fp)
@@ -787,7 +736,6 @@ deco_resolver_salir:
 	move		sp, $fp
 	lw		gp, DECODE_RESOLVER_GP(sp)
 	lw		$fp, DECODE_RESOLVER_FP(sp)
-	lw		ra, DECODE_RESOLVER_RA(sp)
 	addu		sp, sp, DECODE_RESOLVER_STACK_SIZE
 	jr		ra
 	.end		deco_resolver
