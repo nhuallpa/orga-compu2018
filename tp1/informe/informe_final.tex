@@ -87,8 +87,8 @@ Para la traducción a MIPS32 assembly fue necesario dividirlo en las siguientes 
 \item escribir\_byte: Escribe un byte en el file descriptor indicado.
 
 \end{enumerate}
-\newline
 A continuacion se muestra el stack frame de estas funciones:
+\newline
 
 %\includegraphics[width=0.8\textwidth]{stack_base64_encode.pdf}
 	\includepdf[pages={1-},scale=1]{stack_base64_encode.pdf}
@@ -102,6 +102,22 @@ La decodificación se hará de a bloques de 4 bytes, aunque en principio se leen
 seguros de que en los primeros 4 no habrá caracteres de relleno. 
 El programa finaliza decodificando el final de la entrada, verificando que el número de caracteres de relleno 
 sea el correcto.
+\newline
+Para la traducción a MIPS32 assembly fue necesario dividirlo en las siguientes funciones
+\begin{enumerate}
+
+\item base64\_decode: Función principal para la decodificación.
+\item deco\_leer: Garantiza leer la cantidad de caracteres requeridos.
+\item deco\_escribir\_char: Escribe un caracter a la salida.
+\item deco\_resolver: Busca el caracter correspondiente en la tabla.
+\item deco\_finales: Decodifica el final de la entrada y verifica el número de caracteres de relleno.
+
+\end{enumerate}
+A continuacion se muestra el stack frame de estas funciones:
+\newline
+
+%\includegraphics[width=0.8\textwidth]{stack_base64_decode.pdf}
+	\includepdf[pages={1-},scale=1]{stack_base64_decode.pdf}
 
 
 \subsection{Compilación}
@@ -256,5 +272,18 @@ ok: 5
 
 	%\includegraphics[width=0.8\textwidth]{tp1-2018-2q.pdf}
 	\includepdf[pages={1-},scale=1]{tp1-2018-2q.pdf}
+
+\section{Conclusión}
+
+Tuvimos problemas con los casos de prueba que involucraron pipes. Tuvimos que entender el funcionamiento de la
+SYS\_read con pipes para poder solucionarlo. La solución fue leer hasta completar un buffer del tamaño esperado.
+\newline
+Se respetó las convenciones de la ABI para el desarrollo de las funciones en MIPS32, entendiendo que función es “leaf” y “non leaf” a la hora de definir el Stack Frame de cada una.
+\newline
+En cuanto al trabajo grupal en sí mismo, no hubo inconvenientes de
+ningún tipo ya que al ser el grupo relativamente chico y tener conocimiento
+del manejo del versionado de un proyecto ante cambios ingresado por
+los integrantes (por medio del GIT), la introducción de modificaciones
+y correcciones fui fluida.
 
 \end{document}
