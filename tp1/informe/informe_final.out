@@ -1,0 +1,14 @@
+\BOOKMARK [1][-]{section.1}{Introducci\3033n}{}% 1
+\BOOKMARK [1][-]{section.2}{Documentaci\3033n del dise\303o e implementaci\3033n}{}% 2
+\BOOKMARK [2][-]{subsection.2.1}{Desarrollo de actividades}{section.2}% 3
+\BOOKMARK [2][-]{subsection.2.2}{Men\303\272 \(main.c\)}{section.2}% 4
+\BOOKMARK [2][-]{subsection.2.3}{Codificaci\3033n}{section.2}% 5
+\BOOKMARK [2][-]{subsection.2.4}{Decodificaci\3033n}{section.2}% 6
+\BOOKMARK [1][-]{section.3}{Pruebas}{}% 7
+\BOOKMARK [2][-]{subsection.3.1}{C\3033digo de pruebas.sh}{section.3}% 8
+\BOOKMARK [2][-]{subsection.3.2}{Salida de pruebas.sh}{section.3}% 9
+\BOOKMARK [1][-]{section.4}{El codigo fuente, en lenguaje C}{}% 10
+\BOOKMARK [2][-]{subsection.4.1}{main.c}{section.4}% 11
+\BOOKMARK [2][-]{subsection.4.2}{base64.h}{section.4}% 12
+\BOOKMARK [1][-]{section.5}{Funciones de ENCODE/DECODE en codigo MIPS32}{}% 13
+\BOOKMARK [1][-]{section.6}{Enunciado del trabajo practico}{}% 14

@@ -1,23 +1,15 @@
 \contentsline {section}{\numberline {1}Introducci\IeC {\'o}n}{2}
 \contentsline {section}{\numberline {2}Documentaci\IeC {\'o}n del dise\IeC {\~n}o e implementaci\IeC {\'o}n}{2}
-\contentsline {subsection}{\numberline {2.1}Men\IeC {\'u} (main.c)}{2}
-\contentsline {subsection}{\numberline {2.2}Codificaci\IeC {\'o}n}{2}
-\contentsline {subsection}{\numberline {2.3}Decodificaci\IeC {\'o}n}{2}
-\contentsline {section}{\numberline {3}Pruebas}{2}
-\contentsline {subsection}{\numberline {3.1}C\IeC {\'o}digo de pruebas.sh}{2}
-\contentsline {subsection}{\numberline {3.2}Salida de pruebas.sh}{4}
-\contentsline {section}{\numberline {4}C\IeC {\'o}digo en C}{5}
-\contentsline {subsection}{\numberline {4.1}main.c}{5}
-\contentsline {subsection}{\numberline {4.2}codec.h}{9}
-\contentsline {subsection}{\numberline {4.3}codec.c}{9}
-\contentsline {section}{\numberline {5}Codigo de ensamblado MIPS32}{13}
-\contentsline {subsection}{\numberline {5.1}main.s}{13}
-\contentsline {subsection}{\numberline {5.2}codec.s}{14}
-\contentsline {section}{\numberline {6}Enunciado}{15}
-\contentsline {subsection}{\numberline {6.1}Objetivos}{15}
-\contentsline {subsection}{\numberline {6.2}Alcance}{16}
-\contentsline {subsection}{\numberline {6.3}Requisitos}{16}
-\contentsline {subsection}{\numberline {6.4}Recursos}{16}
-\contentsline {subsection}{\numberline {6.5}Programa}{16}
-\contentsline {subsection}{\numberline {6.6}Informe}{16}
-\contentsline {subsection}{\numberline {6.7}Referencias}{16}
+\contentsline {subsection}{\numberline {2.1}{\relax \fontsize {10.95}{13.6}\selectfont \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \belowdisplayskip \abovedisplayskip \let \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ Desarrollo de actividades}}{2}
+\contentsline {subsection}{\numberline {2.2}Men\IeC {\'u} (main.c)}{2}
+\contentsline {subsection}{\numberline {2.3}Codificaci\IeC {\'o}n}{3}
+\contentsline {subsection}{\numberline {2.4}Decodificaci\IeC {\'o}n}{5}
+\contentsline {subsection}{\numberline {2.5}Compilaci\IeC {\'o}n}{5}
+\contentsline {section}{\numberline {3}Pruebas}{5}
+\contentsline {subsection}{\numberline {3.1}C\IeC {\'o}digo de pruebas.sh}{5}
+\contentsline {subsection}{\numberline {3.2}Salida de pruebas.sh}{7}
+\contentsline {section}{\numberline {4}{\relax \fontsize {10.95}{13.6}\selectfont \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \belowdisplayskip \abovedisplayskip \let \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ El codigo fuente, en lenguaje C}}{8}
+\contentsline {subsection}{\numberline {4.1}main.c}{8}
+\contentsline {subsection}{\numberline {4.2}base64.h}{9}
+\contentsline {section}{\numberline {5}{\relax \fontsize {10.95}{13.6}\selectfont \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \belowdisplayskip \abovedisplayskip \let \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ Funciones de ENCODE/DECODE en codigo MIPS32}}{10}
+\contentsline {section}{\numberline {6}{\relax \fontsize {10.95}{13.6}\selectfont \abovedisplayskip 11\p@ plus3\p@ minus6\p@ \abovedisplayshortskip \z@ plus3\p@ \belowdisplayshortskip 6.5\p@ plus3.5\p@ minus3\p@ \belowdisplayskip \abovedisplayskip \let \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ \leftmargin \leftmargini \parsep 4.5\p@ plus2\p@ minus\p@ \topsep 9\p@ plus3\p@ minus5\p@ \itemsep 4.5\p@ plus2\p@ minus\p@ Enunciado del trabajo practico}}{23}

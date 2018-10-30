@@ -122,13 +122,11 @@ int main (int argc, char** argv) {
     exit(1);
   }
   if (strcmp(p.accion, ENCODE) == 0) {
-    //codificar(archivoEntrada, archivoSalida);
     int fileDescriptorEntrada = fileno(archivoEntrada);
     int fileDescriptorSalida = fileno(archivoSalida);
 		returnCode = base64_encode(fileDescriptorEntrada, fileDescriptorSalida);
 		if (returnCode!=0) fprintf(stderr, "Error: %s \n", errmsg[returnCode]);
   } else if (strcmp(p.accion, DECODE) == 0) {
-    //decodificar(archivoEntrada, archivoSalida);
     int infd = fileno(archivoEntrada);
     int outfd = fileno(archivoSalida);
 		returnCode = base64_decode(infd, outfd);
